@@ -1,6 +1,7 @@
 /**
  * TikTok Live Stream Manager & Event Queue
  * Handles incoming chat, gifts, likes, and triggers Gemini AI responses.
+ * Queue waits for AI audio to finish before processing next comment.
  */
 
 export class TikTokLiveManager {
@@ -8,12 +9,16 @@ export class TikTokLiveManager {
     this.targetUsername = options.targetUsername || '';
     this.filterMode = options.filterMode || 'all'; // 'all', 'questions', 'mentions'
     this.cooldownSeconds = options.cooldownSeconds || 4;
-    
+
     this.isConnected = false;
     this.ws = null;
     this.commentQueue = [];
     this.isProcessingQueue = false;
     this.lastReplyTime = 0;
+
+    // Track if AI is still speaking (set by main.js via setAiSpeakingState)
+    this._isAiSpeaking = false;
+    this._aiFinishResolver = null;
 
     // Callbacks
     this.onStatusChange = options.onStatusChange || (() => {});
@@ -21,6 +26,28 @@ export class TikTokLiveManager {
     this.onNewGift = options.onNewGift || (() => {});
     this.onNewLike = options.onNewLike || (() => {});
     this.onTriggerAiReply = options.onTriggerAiReply || (() => {});
+  }
+
+  /**
+   * Called by main.js when AI starts or stops speaking.
+   * Queue processing waits for AI to finish before sending next comment.
+   */
+  setAiSpeakingState(isSpeaking) {
+    this._isAiSpeaking = isSpeaking;
+    if (!isSpeaking && this._aiFinishResolver) {
+      this._aiFinishResolver();
+      this._aiFinishResolver = null;
+    }
+  }
+
+  /**
+   * Returns a promise that resolves when AI finishes speaking
+   */
+  _waitForAiFinish() {
+    if (!this._isAiSpeaking) return Promise.resolve();
+    return new Promise((resolve) => {
+      this._aiFinishResolver = resolve;
+    });
   }
 
   setTargetUsername(username) {
@@ -32,8 +59,19 @@ export class TikTokLiveManager {
    * TikFinity default local WebSocket runs on ws://localhost:21213
    */
   connectTikFinity(port = 21213) {
-    this.onStatusChange('connecting', `Menyambungkan ke TikFinity (ws://localhost:${port})...`);
-    
+    // Close existing connection if any
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch (_) {}
+      this.ws = null;
+    }
+
+    this.onStatusChange(
+      'connecting',
+      `Menyambungkan ke TikFinity (ws://localhost:${port})...`
+    );
+
     try {
       this.ws = new WebSocket(`ws://localhost:${port}`);
     } catch (e) {
@@ -55,9 +93,14 @@ export class TikTokLiveManager {
       }
     };
 
-    this.ws.onerror = (err) => {
-      console.warn('TikFinity connection not found or error. Use simulator or start TikFinity.');
-      this.onStatusChange('idle', 'TikFinity offline (Gunakan Simulator di bawah)');
+    this.ws.onerror = () => {
+      console.warn(
+        'TikFinity connection not found or error. Use simulator or start TikFinity.'
+      );
+      this.onStatusChange(
+        'idle',
+        'TikFinity offline (Gunakan Simulator di bawah)'
+      );
     };
 
     this.ws.onclose = () => {
@@ -79,7 +122,7 @@ export class TikTokLiveManager {
         nickname: event.nickname || event.uniqueId || 'Penonton',
         comment: event.comment || event.text || '',
         avatar: event.profilePictureUrl || null,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       this.onNewComment(commentData);
@@ -98,19 +141,22 @@ export class TikTokLiveManager {
 
       this.onNewGift(giftData);
       // High priority: trigger AI thank-you response
-      this.enqueueComment({
-        uniqueId: giftData.nickname,
-        nickname: giftData.nickname,
-        comment: `[Mengirim Gift: ${giftData.giftName} x${giftData.repeatCount}!] Tolong ucapkan terima kasih yang heboh dan manis!`,
-        isGift: true
-      }, true);
+      this.enqueueComment(
+        {
+          uniqueId: giftData.nickname,
+          nickname: giftData.nickname,
+          comment: `[Mengirim Gift: ${giftData.giftName} x${giftData.repeatCount}!] Tolong ucapkan terima kasih yang heboh dan manis!`,
+          isGift: true,
+        },
+        true
+      );
     }
 
     // 3. Like Event
     else if (event.event === 'like' || event.likeCount) {
       this.onNewLike({
         nickname: event.nickname || 'Penonton',
-        count: event.likeCount || 1
+        count: event.likeCount || 1,
       });
     }
   }
@@ -121,10 +167,16 @@ export class TikTokLiveManager {
   enqueueComment(commentData, highPriority = false) {
     // Check filter
     if (!highPriority) {
-      if (this.filterMode === 'questions' && !commentData.comment.includes('?')) {
+      if (
+        this.filterMode === 'questions' &&
+        !commentData.comment.includes('?')
+      ) {
         return;
       }
-      if (this.filterMode === 'mentions' && !/@ai|maya|bot|halo/i.test(commentData.comment)) {
+      if (
+        this.filterMode === 'mentions' &&
+        !/@ai|maya|bot|halo/i.test(commentData.comment)
+      ) {
         return;
       }
     }
@@ -139,19 +191,34 @@ export class TikTokLiveManager {
   }
 
   /**
-   * Process queue one comment at a time respecting cooldown
+   * Process queue one comment at a time.
+   * Waits for:
+   *   1. Cooldown timer
+   *   2. AI to finish speaking current response
    */
   async processQueue() {
     if (this.isProcessingQueue || this.commentQueue.length === 0) return;
 
+    // 1. Respect cooldown
     const now = Date.now();
     const elapsed = (now - this.lastReplyTime) / 1000;
     if (elapsed < this.cooldownSeconds) {
-      setTimeout(() => this.processQueue(), (this.cooldownSeconds - elapsed) * 1000);
+      const waitMs = (this.cooldownSeconds - elapsed) * 1000;
+      setTimeout(() => this.processQueue(), waitMs);
       return;
     }
 
     this.isProcessingQueue = true;
+
+    // 2. Wait for AI to finish speaking before sending next comment
+    await this._waitForAiFinish();
+
+    // Check queue again (might have been cleared while waiting)
+    if (this.commentQueue.length === 0) {
+      this.isProcessingQueue = false;
+      return;
+    }
+
     const nextComment = this.commentQueue.shift();
 
     try {
@@ -175,7 +242,7 @@ export class TikTokLiveManager {
       uniqueId: username || 'UserTest',
       nickname: username || 'UserTest',
       comment: message || 'Halo AI, apa kabar hari ini?',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     this.onNewComment(commentData);
     this.enqueueComment(commentData);
@@ -190,7 +257,7 @@ export class TikTokLiveManager {
       nickname: username || 'SultanTikTok',
       giftName: giftName || 'Mawar Merah',
       repeatCount: count,
-      diamondCount: 10
+      diamondCount: 10,
     });
   }
 
@@ -200,6 +267,12 @@ export class TikTokLiveManager {
       this.ws = null;
     }
     this.isConnected = false;
+    this.commentQueue = [];
+    this.isProcessingQueue = false;
+    if (this._aiFinishResolver) {
+      this._aiFinishResolver();
+      this._aiFinishResolver = null;
+    }
     this.onStatusChange('disconnected', 'Terputus');
   }
 }

@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Dead binaries (should not be in repo)
+FBX2glTF.exe

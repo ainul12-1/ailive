@@ -51,9 +51,11 @@ const btnQuickGift = document.getElementById('btn-quick-gift');
 // --- 1. Load Stored Configuration ---
 const config = {
   apiKey: localStorage.getItem('gemini_api_key') || '',
-  model: localStorage.getItem('gemini_model') || 'gemini-3.1-flash-live-preview',
+  model: localStorage.getItem('gemini_model') || 'gemini-2.0-flash-live-001',
   voice: localStorage.getItem('gemini_voice') || 'Aoede',
-  systemPrompt: localStorage.getItem('gemini_system_prompt') || 'Kamu adalah Maya, streamer AI yang cantik, cerdas, ramah, dan mempesona di TikTok Live. Jawab setiap komentar penonton secara langsung, padat (1-2 kalimat), dalam bahasa Indonesia yang anggun, santai, dan menyenangkan. Sapa penonton dengan hangat.',
+  systemPrompt:
+    localStorage.getItem('gemini_system_prompt') ||
+    'Kamu adalah Maya, streamer AI yang cantik, cerdas, ramah, dan mempesona di TikTok Live. Jawab setiap komentar penonton secara langsung, padat (1-2 kalimat), dalam bahasa Indonesia yang anggun, santai, dan menyenangkan. Sapa penonton dengan hangat.',
   tiktokUsername: localStorage.getItem('tiktok_username') || '',
   filterMode: localStorage.getItem('tiktok_filter_mode') || 'all',
   cooldownSeconds: parseInt(localStorage.getItem('tiktok_cooldown') || '4', 10),
@@ -87,14 +89,14 @@ avatarRenderer.setLoadingCallback((isLoading, text) => {
   }
 });
 
-// Auto-load high-quality female 3D character on startup
+// Auto-load high-quality animated VRM avatar on startup
 async function loadDefaultAvatar() {
   try {
-    await avatarRenderer.loadModel(weddingGirlUrl, 'Avatar 3D');
+    await avatarRenderer.loadModel(sampleVrmUrl, 'Avatar VTuber 3D');
   } catch (err) {
-    console.warn('Gagal memuat GLB default, mencoba VRM fallback...', err);
+    console.warn('Gagal memuat VRM default, mencoba GLB fallback...', err);
     try {
-      await avatarRenderer.loadModel(sampleVrmUrl, 'Sample VRM');
+      await avatarRenderer.loadModel(weddingGirlUrl, 'Fallback 3D');
     } catch (e) {
       console.error('Gagal memuat model:', e);
     }
@@ -109,7 +111,13 @@ let geminiClient = new GeminiLiveClient({
   voice: config.voice,
   systemInstruction: config.systemPrompt,
   onStatusChange: (status, message) => {
-    geminiStatusEl.className = `status-pill ${status === 'connected' ? 'active' : status === 'error' ? 'error' : ''}`;
+    geminiStatusEl.className = `status-pill ${
+      status === 'connected'
+        ? 'active'
+        : status === 'error'
+          ? 'error'
+          : ''
+    }`;
     geminiStatusEl.querySelector('.text').textContent = message;
   },
   onTranscript: (text) => {
@@ -118,14 +126,20 @@ let geminiClient = new GeminiLiveClient({
   onAudioStart: () => {
     speakerTitleEl.textContent = `Maya (${config.voice}) Berbicara`;
     speakerTitleEl.style.color = '#10b981';
+    // Notify TikTok manager that AI is speaking
+    tiktokManager.setAiSpeakingState(true);
   },
   onAudioEnd: () => {
     speakerTitleEl.textContent = 'Maya Mendengarkan';
     speakerTitleEl.style.color = 'var(--accent-rose)';
+    // Notify TikTok manager that AI finished speaking
+    tiktokManager.setAiSpeakingState(false);
   },
   onError: (errMsg) => {
-    alert(errMsg);
-  }
+    // Use non-blocking notification instead of alert()
+    console.error('Gemini Error:', errMsg);
+    speechTextEl.textContent = `⚠️ ${errMsg}`;
+  },
 });
 
 // Link Audio volume to Avatar lip-sync and 3D visualizer
@@ -150,7 +164,13 @@ const tiktokManager = new TikTokLiveManager({
   filterMode: config.filterMode,
   cooldownSeconds: config.cooldownSeconds,
   onStatusChange: (status, message) => {
-    tiktokStatusEl.className = `status-pill ${status === 'connected' ? 'active' : status === 'error' ? 'error' : ''}`;
+    tiktokStatusEl.className = `status-pill ${
+      status === 'connected'
+        ? 'active'
+        : status === 'error'
+          ? 'error'
+          : ''
+    }`;
     tiktokStatusEl.querySelector('.text').textContent = message;
   },
   onNewComment: (comment) => {
@@ -164,11 +184,27 @@ const tiktokManager = new TikTokLiveManager({
   onTriggerAiReply: async (commentData) => {
     updateQueueBadge();
     if (!geminiClient.isConnected) {
-      geminiClient.connect();
+      if (config.apiKey) {
+        geminiClient.connect();
+        await new Promise((r) => setTimeout(r, 1200));
+        speechTextEl.textContent = `[Merespon ${commentData.nickname}]: "${commentData.comment}"`;
+        geminiClient.sendComment(commentData.nickname, commentData.comment);
+      } else {
+        // Offline preview simulation with full speech, gesture, and lip-sync
+        const greetings = [
+          `Halo kak ${commentData.nickname}! Makasih banyak udah mampir dan ngobrol di live Maya hari ini!`,
+          `Hai ${commentData.nickname}! Wah seru banget pertanyaannya, salam kenal ya!`,
+          `Makasih ${commentData.nickname}! Tetap semangat dan enjoy nonton live streaming ini ya!`
+        ];
+        const reply = greetings[Math.floor(Math.random() * greetings.length)];
+        speechTextEl.textContent = `[Maya merespon ${commentData.nickname}]: "${reply}"`;
+        geminiClient.simulateSpeech(3.5);
+      }
+      return;
     }
     speechTextEl.textContent = `[Merespon ${commentData.nickname}]: "${commentData.comment}"`;
     geminiClient.sendComment(commentData.nickname, commentData.comment);
-  }
+  },
 });
 
 function updateQueueBadge() {
@@ -185,6 +221,11 @@ function appendChatCard(data) {
   `;
   chatFeedEl.appendChild(item);
   chatFeedEl.scrollTop = chatFeedEl.scrollHeight;
+
+  // Limit chat history to prevent DOM bloat
+  while (chatFeedEl.children.length > 100) {
+    chatFeedEl.removeChild(chatFeedEl.firstChild);
+  }
 }
 
 function appendGiftCard(data) {
@@ -199,6 +240,10 @@ function appendGiftCard(data) {
   `;
   chatFeedEl.appendChild(item);
   chatFeedEl.scrollTop = chatFeedEl.scrollHeight;
+
+  while (chatFeedEl.children.length > 100) {
+    chatFeedEl.removeChild(chatFeedEl.firstChild);
+  }
 }
 
 function escapeHtml(text) {
@@ -207,7 +252,17 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Auto connect if credentials exist
+// --- FIX: Resume AudioContext on first user gesture (mobile autoplay policy) ---
+function onFirstInteraction() {
+  geminiClient.ensureAudioResumed();
+  document.removeEventListener('click', onFirstInteraction);
+  document.removeEventListener('touchstart', onFirstInteraction);
+}
+document.addEventListener('click', onFirstInteraction);
+document.addEventListener('touchstart', onFirstInteraction);
+
+// Auto connect if credentials exist (but don't auto-connect on load to avoid
+// autoplay issues - Gemini will connect on first interaction or save)
 if (config.apiKey) {
   geminiClient.connect();
 }
@@ -225,8 +280,10 @@ modelFileInput.addEventListener('change', async (e) => {
     await avatarRenderer.loadModel(file, file.name);
     speechTextEl.textContent = `Model ${file.name} berhasil dimuat.`;
   } catch (err) {
-    alert(`Gagal memuat model: ${err.message}`);
+    speechTextEl.textContent = `⚠️ Gagal memuat model: ${err.message}`;
   }
+  // Reset file input so same file can be selected again
+  modelFileInput.value = '';
 });
 
 // Drag and drop 3D file directly into window
@@ -234,12 +291,17 @@ window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', async (e) => {
   e.preventDefault();
   const file = e.dataTransfer.files?.[0];
-  if (file && (file.name.endsWith('.glb') || file.name.endsWith('.vrm') || file.name.endsWith('.gltf'))) {
+  if (
+    file &&
+    (file.name.endsWith('.glb') ||
+      file.name.endsWith('.vrm') ||
+      file.name.endsWith('.gltf'))
+  ) {
     try {
       await avatarRenderer.loadModel(file, file.name);
       speechTextEl.textContent = `Model ${file.name} berhasil dimuat.`;
     } catch (err) {
-      alert(`Gagal memuat model: ${err.message}`);
+      speechTextEl.textContent = `⚠️ Gagal memuat model: ${err.message}`;
     }
   }
 });
@@ -257,8 +319,13 @@ if (btnMobileObs) btnMobileObs.addEventListener('click', toggleObsMode);
 // Mobile Chat Drawer Toggle
 if (btnMobileChat) {
   btnMobileChat.addEventListener('click', () => {
-    sidebarEl.classList.toggle('sheet-open');
-    btnMobileChat.classList.toggle('active', sidebarEl.classList.contains('sheet-open'));
+    const isOpen = sidebarEl.classList.toggle('sheet-open');
+    btnMobileChat.classList.toggle('active', isOpen);
+    // Hide mobile dock when drawer is open to prevent overlap
+    const mobileDock = document.querySelector('.mobile-dock');
+    if (mobileDock) {
+      mobileDock.classList.toggle('dock-hidden', isOpen);
+    }
   });
 }
 
@@ -270,6 +337,11 @@ btnOpenSettings.addEventListener('click', openSettings);
 if (btnMobileSettings) btnMobileSettings.addEventListener('click', openSettings);
 btnCloseSettings.addEventListener('click', closeSettings);
 btnCancelSettings.addEventListener('click', closeSettings);
+
+// Close modal on backdrop click
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) closeSettings();
+});
 
 // Save Settings
 btnSaveSettings.addEventListener('click', () => {
@@ -308,6 +380,7 @@ btnSaveSettings.addEventListener('click', () => {
   }
 
   closeSettings();
+  speechTextEl.textContent = 'Pengaturan berhasil disimpan.';
 });
 
 // Simulator Chat Send
