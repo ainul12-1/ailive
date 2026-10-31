@@ -1,9 +1,11 @@
+import { io } from 'socket.io-client';
+
 /**
  * TikTok Live Stream Manager & Event Queue
- * Dual-Mode Connector:
- *  1. Native Rust Engine (inside Tauri .exe & .apk): Directly connects to TikTok Live
- *     without needing TikFinity, Node.js, or external software!
- *  2. Browser WebSocket Fallback (TikFinity / scripts/tiktok-bridge.js)
+ * Universal Multi-Channel Connector:
+ *  1. Native Rust Engine (inside Desktop .exe): Direct local connection
+ *  2. Direct Cloud Connector (inside Mobile .apk): Direct connection from Android phone without laptop!
+ *  3. WebSocket Bridge (TikFinity / Custom WebSocket Server)
  */
 
 export class TikTokLiveManager {
@@ -15,6 +17,7 @@ export class TikTokLiveManager {
 
     this.isConnected = false;
     this.ws = null;
+    this.ioSocket = null;
     this.commentQueue = [];
     this.isProcessingQueue = false;
     this.lastReplyTime = 0;
@@ -74,10 +77,10 @@ export class TikTokLiveManager {
 
     const isTauri = typeof window !== 'undefined' && (!!window.__TAURI__ || !!window.__TAURI_INTERNALS__);
 
-    // 1. Native Direct Mode in Tauri (.exe / .apk)
+    // 1. Native Direct Mode in Tauri Desktop (.exe)
     if (isTauri && this.targetUsername) {
       console.log(`🚀 [Tauri Native TikTok]: Menghubungkan langsung ke live @${this.targetUsername}...`);
-      this.onStatusChange('connecting', `Menghubungkan ke live @${this.targetUsername}...`);
+      this.onStatusChange('connecting', `Menghubungkan langsung ke live @${this.targetUsername}...`);
 
       try {
         if (!this._hasTauriListeners) {
@@ -104,15 +107,126 @@ export class TikTokLiveManager {
         }
 
         const coreApi = window.__TAURI__.core;
-        await coreApi.invoke('start_tiktok_listener', { username: this.targetUsername });
-        return;
+        const res = await coreApi.invoke('start_tiktok_listener', { username: this.targetUsername });
+        if (res === 'OK') return;
       } catch (err) {
-        console.warn('Native listener invocation failed, falling back to WebSocket bridge:', err);
+        console.log('⚡ Mengalihkan ke Cloud Connector mandiri untuk HP:', err);
       }
     }
 
-    // 2. Browser WebSocket Bridge Fallback (TikFinity / scripts/tiktok-bridge.js)
-    this.connectWebSocket();
+    // 2. Direct Cloud Connector for Mobile Phone (100% Mandiri Tanpa Laptop!)
+    if (this.targetUsername) {
+      this.connectCloudRelay();
+      return;
+    }
+
+    // 3. Custom WebSocket Fallback (TikFinity / Custom Bridge)
+    if (this.wsUrl && !this.wsUrl.includes('localhost')) {
+      this.connectWebSocket();
+    } else {
+      this.onStatusChange('idle', 'Silakan masukkan Username TikTok di Pengaturan.');
+    }
+  }
+
+  /**
+   * Cloud Connector: Langsung membaca TikTok Live dari HP tanpa memerlukan laptop / server lokal
+   */
+  connectCloudRelay() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    if (this.ioSocket) {
+      try {
+        this.ioSocket.disconnect();
+      } catch (_) {}
+      this.ioSocket = null;
+    }
+
+    const cleanUser = this.targetUsername.replace(/^@/, '').trim();
+    console.log(`📱 [AILIVE Cloud Relay]: Menghubungkan ke live @${cleanUser} langsung dari HP...`);
+    this.onStatusChange('connecting', `Menghubungkan langsung ke live @${cleanUser}...`);
+
+    try {
+      this.ioSocket = io('https://tiktok-chat-reader.zerody.one/', {
+        transports: ['websocket', 'polling'],
+        timeout: 10000,
+        reconnection: true,
+        reconnectionDelay: 3000,
+      });
+
+      this.ioSocket.on('connect', () => {
+        console.log(`✅ [Cloud Relay Terhubung]: Mengirim target @${cleanUser}...`);
+        this.ioSocket.emit('setUniqueId', cleanUser, {});
+      });
+
+      this.ioSocket.on('tiktokConnected', (data) => {
+        this.isConnected = true;
+        this.onStatusChange('connected', `Terhubung langsung ke @${cleanUser}`);
+        console.log('🎉 [TikTok Live Connected]:', data);
+      });
+
+      this.ioSocket.on('chat', (data) => {
+        this.handleIncomingEvent({
+          event: 'chat',
+          data: {
+            uniqueId: data.uniqueId || data.nickname || 'Penonton',
+            nickname: data.nickname || data.uniqueId || 'Penonton',
+            comment: data.comment || '',
+            timestamp: Date.now()
+          }
+        });
+      });
+
+      this.ioSocket.on('gift', (data) => {
+        this.handleIncomingEvent({
+          event: 'gift',
+          data: {
+            uniqueId: data.uniqueId || data.nickname || 'Penonton',
+            nickname: data.nickname || data.uniqueId || 'Penonton',
+            giftName: data.giftName || 'Gift Cantik',
+            repeatCount: data.repeatCount || 1,
+            diamondCount: data.diamondCount || 1
+          }
+        });
+      });
+
+      this.ioSocket.on('like', (data) => {
+        this.handleIncomingEvent({
+          event: 'like',
+          data: {
+            totalLikes: data.totalLikeCount || data.likeCount || 0
+          }
+        });
+      });
+
+      this.ioSocket.on('tiktokDisconnected', (errMsg) => {
+        this.isConnected = false;
+        const msg = errMsg ? `Info: ${errMsg}` : 'Live stream belum aktif atau telah berakhir';
+        this.onStatusChange('disconnected', msg);
+        console.warn('TikTok disconnected from cloud relay:', errMsg);
+      });
+
+      this.ioSocket.on('streamEnd', () => {
+        this.isConnected = false;
+        this.onStatusChange('disconnected', 'Live streaming telah berakhir');
+      });
+
+      this.ioSocket.on('connect_error', (err) => {
+        console.warn('Cloud relay socket error:', err);
+        if (this.wsUrl && !this.wsUrl.includes('localhost')) {
+          this.connectWebSocket();
+        } else {
+          this.onStatusChange('idle', `Menghubungkan ke @${cleanUser}... Gunakan Simulator untuk tes langsung.`);
+        }
+      });
+    } catch (err) {
+      console.error('Gagal menghubungkan ke cloud relay:', err);
+      if (this.wsUrl && !this.wsUrl.includes('localhost')) {
+        this.connectWebSocket();
+      }
+    }
   }
 
   connectWebSocket() {
@@ -442,6 +556,12 @@ export class TikTokLiveManager {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+    if (this.ioSocket) {
+      try {
+        this.ioSocket.disconnect();
+      } catch (_) {}
+      this.ioSocket = null;
     }
     this.isConnected = false;
     this.commentQueue = [];
