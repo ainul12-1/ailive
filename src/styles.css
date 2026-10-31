@@ -714,15 +714,34 @@ textarea.input-studio {
     padding: 0 10px;
   }
 
-  /* Status Pill Compact on Mobile */
+  /* Status Pill Clean & Visible on Mobile */
+  .studio-header {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: max(8px, var(--sat)) max(12px, var(--sar)) 8px max(12px, var(--sal));
+  }
+  .status-pill-group {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding-top: 2px;
+    scrollbar-width: none;
+  }
+  .status-pill-group::-webkit-scrollbar {
+    display: none;
+  }
   .status-pill {
-    padding: 4px 8px;
-    font-size: 10px;
+    padding: 4px 10px;
+    font-size: 11px;
+    flex-shrink: 0;
   }
   .status-pill .text {
-    max-width: 85px;
+    max-width: calc(100vw - 70px);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* iOS Sheet Backdrop Scrim */
@@ -899,8 +918,9 @@ textarea.input-studio {
 
 /* Extra Small Phones (< 380px) */
 @media (max-width: 380px) {
-  .status-pill-group {
-    display: none;
+  .status-pill {
+    padding: 3px 8px;
+    font-size: 10px;
   }
   .mobile-dock {
     gap: 4px;

@@ -196,11 +196,12 @@ const tiktokManager = new TikTokLiveManager({
     tiktokStatusEl.className = `status-pill ${
       status === 'connected'
         ? 'active'
-        : status === 'error'
+        : status === 'error' || status === 'disconnected'
           ? 'error'
           : ''
     }`;
     tiktokStatusEl.querySelector('.text').textContent = message;
+    tiktokStatusEl.title = message;
   },
   onNewComment: (comment) => {
     appendChatCard(comment);

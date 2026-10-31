@@ -203,8 +203,18 @@ export class TikTokLiveManager {
 
       this.ioSocket.on('tiktokDisconnected', (errMsg) => {
         this.isConnected = false;
-        const msg = errMsg ? `Info: ${errMsg}` : 'Live stream belum aktif atau telah berakhir';
-        this.onStatusChange('disconnected', msg);
+        let displayMessage = 'Live stream terputus atau belum aktif';
+        if (errMsg) {
+          const str = String(errMsg);
+          if (/recaptcha|captcha/i.test(str)) {
+            displayMessage = `@${cleanUser} tidak sedang LIVE atau butuh verifikasi. Pastikan akun sedang streaming atau coba akun lain yang sedang LIVE.`;
+          } else if (/not found|not live|offline|ended/i.test(str)) {
+            displayMessage = `@${cleanUser} sedang tidak aktif LIVE saat ini.`;
+          } else {
+            displayMessage = `Status: ${str}`;
+          }
+        }
+        this.onStatusChange('disconnected', displayMessage);
         console.warn('TikTok disconnected from cloud relay:', errMsg);
       });
 
