@@ -9,7 +9,7 @@
  *   node scripts/tiktok-bridge.js akun_streamer 21213
  */
 
-import { WebcastPushConnection } from 'tiktok-live-connector';
+import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import os from 'os';
@@ -93,7 +93,7 @@ wss.on('connection', (ws, req) => {
 });
 
 // Setup TikTok Live Connector
-let tiktokConn = new WebcastPushConnection(cleanUsername, {
+let tiktokConn = new TikTokLiveConnection(cleanUsername, {
   processInitialData: false,
   enableExtendedGiftInfo: true,
   enableWebsocketUpgrade: true,

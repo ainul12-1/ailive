@@ -1,13 +1,9 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 
-#[cfg(not(target_os = "android"))]
 use piratetok_live_rs::TikTokLive;
-#[cfg(not(target_os = "android"))]
 use piratetok_live_rs::structs::TikTokLiveEvent;
-#[cfg(not(target_os = "android"))]
-use tauri::Emitter;
 
 pub struct TikTokListenerState {
     pub stop_signal: Arc<AtomicBool>,
@@ -21,7 +17,6 @@ impl Default for TikTokListenerState {
     }
 }
 
-#[cfg(not(target_os = "android"))]
 #[tauri::command]
 async fn start_tiktok_listener(
     app: AppHandle,
@@ -60,9 +55,17 @@ async fn start_tiktok_listener(
                 s
             }
             Err(e) => {
+                let err_str = e.to_string();
+                let user_msg = if err_str.to_lowercase().contains("offline") || err_str.to_lowercase().contains("not found") {
+                    format!("Akun @{} sedang tidak aktif LIVE saat ini.", clean_user)
+                } else if err_str.to_lowercase().contains("blocked") || err_str.to_lowercase().contains("captcha") {
+                    format!("TikTok mendeteksi pembatasan pada @{}. Coba beberapa saat lagi.", clean_user)
+                } else {
+                    format!("Gagal terhubung ke @{}: {}", clean_user, err_str)
+                };
                 let _ = app_handle.emit("tiktok-status", serde_json::json!({
                     "status": "error",
-                    "message": format!("Gagal: {}", e)
+                    "message": user_msg
                 }));
                 return;
             }
@@ -105,7 +108,7 @@ async fn start_tiktok_listener(
                     TikTokLiveEvent::Disconnected => {
                         let _ = app_handle.emit("tiktok-status", serde_json::json!({
                             "status": "disconnected",
-                            "message": "Live streaming terputus atau berakhir"
+                            "message": "Live streaming terputus atau telah berakhir"
                         }));
                         break;
                     }
@@ -122,16 +125,6 @@ async fn start_tiktok_listener(
     });
 
     Ok("OK".into())
-}
-
-#[cfg(target_os = "android")]
-#[tauri::command]
-async fn start_tiktok_listener(
-    _app: AppHandle,
-    _username: String,
-    _state: State<'_, TikTokListenerState>,
-) -> Result<String, String> {
-    Err("USE_CLIENT_CONNECTOR".into())
 }
 
 #[tauri::command]
