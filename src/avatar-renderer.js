@@ -11,129 +11,128 @@ export class AvatarRenderer {
     this.clock = new THREE.Clock();
 
     // Models
+    this.currentModel = null;
     this.currentVrm = null;
-    this.cyberCoreGroup = null;
-    this.particles = null;
+    this.morphMeshes = [];
     this.audioVolumeGetter = () => 0;
 
-    // VRM Animation state
+    // Head / Eye tracking target
+    this.targetMouse = new THREE.Vector2(0, 0);
+    this.currentMouse = new THREE.Vector2(0, 0);
+
+    // Blinking
     this.blinkTimer = 0;
     this.blinkDuration = 0.15;
     this.nextBlinkTime = 3.0;
 
+    // Loading callback
+    this.onLoadingChange = () => {};
+
     this.initScene();
+  }
+
+  setLoadingCallback(cb) {
+    this.onLoadingChange = cb;
   }
 
   initScene() {
     // 1. Scene
     this.scene = new THREE.Scene();
 
-    // 2. Camera
+    // 2. Camera (Portrait bust framing)
     const width = this.container.clientWidth || 800;
     const height = this.container.clientHeight || 600;
-    this.camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
-    this.camera.position.set(0, 1.35, 1.5);
+    this.camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
+    this.camera.position.set(0, 1.45, 1.25);
+    this.camera.lookAt(0, 1.38, 0);
 
-    // 3. Renderer with transparent background support for OBS
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // 3. WebGL Renderer with High Quality Color Management
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-    this.scene.add(ambientLight);
+    // 4. Dramatic Cinematic Studio Lighting (Matching the crimson & soft studio aesthetic)
+    this.setupLighting();
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(1.0, 2.0, 1.5).normalize();
-    this.scene.add(dirLight);
+    // 5. Procedural Studio Backdrop Particles
+    this.setupFloatingParticles();
 
-    const rimLight = new THREE.DirectionalLight(0x00f0ff, 1.5);
-    rimLight.position.set(-1.5, 1.0, -1.0).normalize();
-    this.scene.add(rimLight);
+    // 6. Interactive Parallax (Mouse & Touch tracking)
+    this.setupInteractionListeners();
 
-    const magentaLight = new THREE.DirectionalLight(0xff007f, 1.2);
-    magentaLight.position.set(1.5, -0.5, 0.5).normalize();
-    this.scene.add(magentaLight);
-
-    // 5. Default Procedural Cyber Avatar
-    this.createDefaultCyberAvatar();
-
-    // 6. Handle Resize
+    // 7. Handle Window Resize
     window.addEventListener('resize', () => this.onWindowResize());
 
-    // 7. Start render loop
+    // 8. Render loop
     this.animate();
   }
 
-  createDefaultCyberAvatar() {
-    this.cyberCoreGroup = new THREE.Group();
-    this.cyberCoreGroup.position.set(0, 1.2, 0);
+  setupLighting() {
+    // Ambient fill
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    this.scene.add(ambientLight);
 
-    // Central Glowing Holographic Sphere
-    const coreGeo = new THREE.IcosahedronGeometry(0.35, 4);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x00ffff,
-      emissive: 0x0088ff,
-      emissiveIntensity: 0.6,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-    this.coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    this.cyberCoreGroup.add(this.coreMesh);
+    // Key Light (Warm soft frontal studio light)
+    const keyLight = new THREE.DirectionalLight(0xfff3e0, 2.2);
+    keyLight.position.set(0.8, 2.2, 1.8);
+    this.scene.add(keyLight);
 
-    // Inner Core Solid Glow
-    const innerGeo = new THREE.SphereGeometry(0.22, 32, 32);
-    const innerMat = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
-      transparent: true,
-      opacity: 0.6,
-    });
-    this.innerCore = new THREE.Mesh(innerGeo, innerMat);
-    this.cyberCoreGroup.add(this.innerCore);
+    // Fill Light (Cool soft blue-tinted)
+    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 1.0);
+    fillLight.position.set(-1.2, 1.5, 1.2);
+    this.scene.add(fillLight);
 
-    // Orbital Energy Rings
-    this.rings = [];
-    const ringRadii = [0.45, 0.52, 0.59];
-    const ringColors = [0x00f0ff, 0xa855f7, 0xec4899];
+    // Dramatic Crimson / Rose Rim Light (Backlight for hair and silhouette)
+    const rimLight = new THREE.DirectionalLight(0xe11d48, 3.5);
+    rimLight.position.set(-1.0, 1.8, -1.5);
+    this.scene.add(rimLight);
 
-    ringRadii.forEach((radius, i) => {
-      const ringGeo = new THREE.TorusGeometry(radius, 0.008, 16, 100);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: ringColors[i],
-        transparent: true,
-        opacity: 0.8,
-      });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = Math.PI / (2 + i * 0.5);
-      ring.rotation.y = (Math.PI / 4) * i;
-      this.rings.push(ring);
-      this.cyberCoreGroup.add(ring);
-    });
+    // Gold Secondary Rim
+    const goldRim = new THREE.DirectionalLight(0xfbbf24, 1.8);
+    goldRim.position.set(1.2, 1.0, -1.2);
+    this.scene.add(goldRim);
+  }
 
-    // Audio-reactive particle dust
-    const particleCount = 200;
-    const particleGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
+  setupFloatingParticles() {
+    const particleCount = 120;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 1.8;
-      positions[i + 1] = (Math.random() - 0.5) * 1.8;
-      positions[i + 2] = (Math.random() - 0.5) * 1.8;
+      pos[i] = (Math.random() - 0.5) * 3.0;
+      pos[i + 1] = Math.random() * 2.5 + 0.5;
+      pos[i + 2] = (Math.random() - 0.5) * 2.5;
     }
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const particleMat = new THREE.PointsMaterial({
-      color: 0x38bdf8,
-      size: 0.025,
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xf43f5e,
+      size: 0.02,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending,
     });
-    this.particles = new THREE.Points(particleGeo, particleMat);
-    this.cyberCoreGroup.add(this.particles);
+    this.particles = new THREE.Points(geo, mat);
+    this.scene.add(this.particles);
+  }
 
-    this.scene.add(this.cyberCoreGroup);
+  setupInteractionListeners() {
+    const handleMove = (x, y) => {
+      const rect = this.container.getBoundingClientRect();
+      const normX = ((x - rect.left) / rect.width) * 2 - 1;
+      const normY = -(((y - rect.top) / rect.height) * 2 - 1);
+      this.targetMouse.x = THREE.MathUtils.clamp(normX, -1, 1);
+      this.targetMouse.y = THREE.MathUtils.clamp(normY, -1, 1);
+    };
+
+    window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
   }
 
   setAudioVolumeGetter(getter) {
@@ -141,9 +140,11 @@ export class AvatarRenderer {
   }
 
   /**
-   * Load custom 3D VRM model (from File object or URL)
+   * Load any 3D model (VRM, GLB, GLTF)
    */
-  async loadVRM(fileOrUrl) {
+  async loadModel(fileOrUrl, modelName = '3D Avatar') {
+    this.onLoadingChange(true, `Memuat ${modelName}...`);
+
     let url;
     if (typeof fileOrUrl === 'string') {
       url = fileOrUrl;
@@ -158,106 +159,93 @@ export class AvatarRenderer {
       loader.load(
         url,
         (gltf) => {
-          // Clean up old models
-          if (this.currentVrm) {
-            this.scene.remove(this.currentVrm.scene);
-            VRMUtils.deepDispose(this.currentVrm.scene);
-            this.currentVrm = null;
-          }
-          if (this.currentGltf) {
-            this.scene.remove(this.currentGltf);
-            this.currentGltf = null;
-          }
-
-          // Hide default cyber avatar
-          if (this.cyberCoreGroup) {
-            this.cyberCoreGroup.visible = false;
-          }
+          // Dispose previous models
+          this.clearCurrentModel();
 
           const vrm = gltf.userData.vrm;
           if (vrm) {
-            // --- 1. VRM Model ---
+            // === 1. VRM MODEL ===
             this.currentVrm = vrm;
+            this.currentModel = vrm.scene;
             VRMUtils.rotateVRM0(vrm);
             this.scene.add(vrm.scene);
 
+            // Focus on face
             const headNode = vrm.humanoid?.getNormalizedBoneNode('head');
             if (headNode) {
               const headPos = new THREE.Vector3();
               headNode.getWorldPosition(headPos);
-              this.camera.position.set(0, headPos.y - 0.05, 1.15);
+              this.camera.position.set(0, headPos.y - 0.05, 1.05);
               this.camera.lookAt(0, headPos.y - 0.05, 0);
             } else {
-              this.camera.position.set(0, 1.35, 1.3);
-              this.camera.lookAt(0, 1.3, 0);
+              this.camera.position.set(0, 1.35, 1.25);
+              this.camera.lookAt(0, 1.30, 0);
             }
-            console.log('Model VRM berhasil dimuat!');
-            resolve(vrm);
           } else {
-            // --- 2. Standard GLB / GLTF Model ---
+            // === 2. GLB / GLTF MODEL ===
             const modelScene = gltf.scene;
-            this.currentGltf = modelScene;
+            this.currentModel = modelScene;
 
-            // Auto-scale and center the 3D model
+            // Auto-scale and center the character
             const box = new THREE.Box3().setFromObject(modelScene);
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
 
             const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 1.6 / (maxDim || 1);
+            const scale = 1.65 / (maxDim || 1);
             modelScene.scale.set(scale, scale, scale);
 
-            // Center on stage
             modelScene.position.x = -center.x * scale;
             modelScene.position.y = -box.min.y * scale;
             modelScene.position.z = -center.z * scale;
 
             this.scene.add(modelScene);
 
-            // Frame camera
-            this.camera.position.set(0, 1.3, 1.6);
-            this.camera.lookAt(0, 1.1, 0);
+            // Frame camera on bust & face
+            const isMobile = window.innerWidth < 768;
+            const camZ = isMobile ? 1.45 : 1.15;
+            this.camera.position.set(0, 1.32, camZ);
+            this.camera.lookAt(0, 1.25, 0);
 
-            // Find morph targets if available
+            // Collect morph target meshes for audio lip-sync
             this.morphMeshes = [];
             modelScene.traverse((child) => {
               if (child.isMesh && child.morphTargetInfluences && child.morphTargetInfluences.length > 0) {
                 this.morphMeshes.push(child);
               }
             });
-
-            console.log('Model GLB/GLTF berhasil dimuat! Morph meshes:', this.morphMeshes.length);
-            resolve(modelScene);
           }
+
+          this.onLoadingChange(false);
+          console.log('Model 3D berhasil dimuat!');
+          resolve(this.currentModel);
         },
         (progress) => {
           if (progress.total > 0) {
-            console.log('Loading 3D:', Math.round((progress.loaded / progress.total) * 100), '%');
+            const pct = Math.round((progress.loaded / progress.total) * 100);
+            this.onLoadingChange(true, `Mengunduh 3D: ${pct}%`);
           }
         },
-        (error) => {
-          console.error('Error loading 3D model:', error);
-          reject(error);
+        (err) => {
+          this.onLoadingChange(false);
+          console.error('Error loading 3D model:', err);
+          reject(err);
         }
       );
     });
   }
 
-  resetToCyberAvatar() {
+  clearCurrentModel() {
     if (this.currentVrm) {
       this.scene.remove(this.currentVrm.scene);
       VRMUtils.deepDispose(this.currentVrm.scene);
       this.currentVrm = null;
     }
-    if (this.currentGltf) {
-      this.scene.remove(this.currentGltf);
-      this.currentGltf = null;
+    if (this.currentModel) {
+      this.scene.remove(this.currentModel);
+      this.currentModel = null;
     }
-    if (this.cyberCoreGroup) {
-      this.cyberCoreGroup.visible = true;
-    }
-    this.camera.position.set(0, 1.35, 1.5);
-    this.camera.lookAt(0, 1.2, 0);
+    this.morphMeshes = [];
   }
 
   onWindowResize() {
@@ -267,6 +255,10 @@ export class AvatarRenderer {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+
+    // Adjust camera distance for mobile portrait aspect
+    const isMobile = width < 768;
+    this.camera.position.z = isMobile ? 1.45 : 1.15;
   }
 
   animate() {
@@ -276,34 +268,45 @@ export class AvatarRenderer {
     const elapsedTime = this.clock.getElapsedTime();
     const volume = this.audioVolumeGetter() || 0; // 0.0 - 1.0
 
-    // 1. If VRM Model is Active:
+    // Smooth mouse parallax interpolation
+    this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.05;
+    this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.05;
+
+    // Float particles
+    if (this.particles) {
+      this.particles.rotation.y = elapsedTime * 0.03;
+    }
+
+    // === 1. ANIMATE VRM MODEL ===
     if (this.currentVrm) {
-      // Natural idle breathing animation
+      // Natural idle breathing
       const spine = this.currentVrm.humanoid?.getNormalizedBoneNode('spine');
       if (spine) {
-        spine.rotation.x = Math.sin(elapsedTime * 1.5) * 0.025;
-      }
-      const head = this.currentVrm.humanoid?.getNormalizedBoneNode('head');
-      if (head) {
-        head.rotation.y = Math.sin(elapsedTime * 0.8) * 0.05;
-        // Head bobbing when speaking
-        head.rotation.x = (Math.sin(elapsedTime * 8.0) * 0.03 * volume);
+        spine.rotation.x = Math.sin(elapsedTime * 1.5) * 0.02;
+        spine.rotation.y = this.currentMouse.x * 0.08;
       }
 
-      // Eye blinking
+      // Head movement & subtle tracking towards user
+      const head = this.currentVrm.humanoid?.getNormalizedBoneNode('head');
+      if (head) {
+        head.rotation.y = this.currentMouse.x * 0.18 + Math.sin(elapsedTime * 0.8) * 0.03;
+        head.rotation.x = -this.currentMouse.y * 0.12 + Math.sin(elapsedTime * 7.0) * 0.04 * volume;
+      }
+
+      // Blinking
       this.blinkTimer += delta;
       if (this.blinkTimer >= this.nextBlinkTime) {
         this.currentVrm.expressionManager?.setValue('blink', 1.0);
         if (this.blinkTimer >= this.nextBlinkTime + this.blinkDuration) {
           this.currentVrm.expressionManager?.setValue('blink', 0.0);
           this.blinkTimer = 0;
-          this.nextBlinkTime = 2.5 + Math.random() * 3.0;
+          this.nextBlinkTime = 2.5 + Math.random() * 3.5;
         }
       }
 
-      // Real-Time Lip-Sync from Gemini Live Audio Volume
+      // Real-Time Lip-Sync
       if (this.currentVrm.expressionManager) {
-        const mouthOpen = Math.min(1.0, volume * 1.4);
+        const mouthOpen = Math.min(1.0, volume * 1.5);
         this.currentVrm.expressionManager.setValue('aa', mouthOpen);
         this.currentVrm.expressionManager.setValue('ih', mouthOpen * 0.4);
         this.currentVrm.expressionManager.setValue('ou', mouthOpen * 0.3);
@@ -312,49 +315,21 @@ export class AvatarRenderer {
       this.currentVrm.update(delta);
     }
 
-    // 2. If Procedural Cyber AI Avatar is Active:
-    if (this.cyberCoreGroup && this.cyberCoreGroup.visible) {
-      // Rotate core & rings
-      this.coreMesh.rotation.y += 0.01 + volume * 0.05;
-      this.coreMesh.rotation.x += 0.005;
+    // === 2. ANIMATE STANDARD GLB MODEL ===
+    else if (this.currentModel) {
+      // Natural idle breathing & sway
+      this.currentModel.rotation.y = this.currentMouse.x * 0.15 + Math.sin(elapsedTime * 0.8) * 0.04;
+      this.currentModel.rotation.x = -this.currentMouse.y * 0.08;
+      
+      // Subtle rhythmic chest bobbing
+      this.currentModel.position.y += (Math.sin(elapsedTime * 1.8) * 0.0005) + (volume * 0.003);
 
-      this.rings[0].rotation.z += 0.015 + volume * 0.04;
-      this.rings[1].rotation.x += 0.02 + volume * 0.03;
-      this.rings[2].rotation.y += 0.01 + volume * 0.05;
-
-      // Pulse size with audio volume
-      const scale = 1.0 + volume * 0.35 + Math.sin(elapsedTime * 2.0) * 0.04;
-      this.coreMesh.scale.set(scale, scale, scale);
-      this.innerCore.scale.set(scale, scale, scale);
-
-      // Color shift when speaking
-      if (volume > 0.05) {
-        this.coreMesh.material.emissive.setHex(0xff007f); // Magenta pulse
-        this.innerCore.material.color.setHex(0xff00aa);
-      } else {
-        this.coreMesh.material.emissive.setHex(0x0088ff); // Calm cyan
-        this.innerCore.material.color.setHex(0x00ffff);
-      }
-
-      // Floating particles
-      if (this.particles) {
-        this.particles.rotation.y = elapsedTime * 0.05;
-      }
-
-      // Floating bobbing
-      this.cyberCoreGroup.position.y = 1.2 + Math.sin(elapsedTime * 1.5) * 0.04;
-    }
-
-    // 3. If Standard GLB / GLTF Model is Active:
-    if (this.currentGltf) {
-      // Natural subtle idle sway
-      this.currentGltf.rotation.y = Math.sin(elapsedTime * 0.7) * 0.06;
-
-      // React to audio volume when speaking (subtle nod / pulse)
+      // Morph targets (if model has shape keys)
       if (this.morphMeshes && this.morphMeshes.length > 0) {
+        const mouthOpen = Math.min(1.0, volume * 1.5);
         this.morphMeshes.forEach((mesh) => {
           if (mesh.morphTargetInfluences && mesh.morphTargetInfluences.length > 0) {
-            mesh.morphTargetInfluences[0] = Math.min(1.0, volume * 1.5);
+            mesh.morphTargetInfluences[0] = mouthOpen;
           }
         });
       }

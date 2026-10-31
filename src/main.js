@@ -1,25 +1,36 @@
 import { GeminiLiveClient } from './gemini-live.js';
 import { AvatarRenderer } from './avatar-renderer.js';
 import { TikTokLiveManager } from './tiktok-live.js';
+
+// Assets
+import weddingGirlUrl from './assets/WhiteWeddingDressGirl.glb?url';
 import sampleVrmUrl from './assets/sample.vrm?url';
 
-// Elements
+// DOM Elements
 const geminiStatusEl = document.getElementById('gemini-status');
 const tiktokStatusEl = document.getElementById('tiktok-status');
-const transcriptDisplayEl = document.getElementById('transcript-display');
-const speakerNameEl = document.getElementById('speaker-name');
+const speechTextEl = document.getElementById('speech-text');
+const speakerTitleEl = document.getElementById('speaker-title');
 const chatFeedEl = document.getElementById('chat-feed');
 const queueBadgeEl = document.getElementById('queue-badge');
 const soundwaveEl = document.getElementById('soundwave');
-const btnLoadSampleVrm = document.getElementById('btn-load-sample-vrm');
-const vrmFileInput = document.getElementById('vrm-file-input');
+const stageLoaderEl = document.getElementById('stage-loader');
+const loaderStatusEl = document.getElementById('loader-status');
+
+// Controls
+const modelFileInput = document.getElementById('model-file-input');
 const btnToggleObs = document.getElementById('btn-toggle-obs');
 const btnOpenSettings = document.getElementById('btn-open-settings');
 const btnCloseSettings = document.getElementById('btn-close-settings');
 const btnCancelSettings = document.getElementById('btn-cancel-settings');
 const btnSaveSettings = document.getElementById('btn-save-settings');
-const btnResetAvatar = document.getElementById('btn-reset-avatar');
 const settingsModal = document.getElementById('settings-modal');
+const sidebarEl = document.getElementById('sidebar');
+
+// Mobile Dock Buttons
+const btnMobileChat = document.getElementById('btn-mobile-chat');
+const btnMobileObs = document.getElementById('btn-mobile-obs');
+const btnMobileSettings = document.getElementById('btn-mobile-settings');
 
 // Settings Inputs
 const inputApiKey = document.getElementById('input-api-key');
@@ -41,8 +52,8 @@ const btnQuickGift = document.getElementById('btn-quick-gift');
 const config = {
   apiKey: localStorage.getItem('gemini_api_key') || '',
   model: localStorage.getItem('gemini_model') || 'gemini-3.1-flash-live-preview',
-  voice: localStorage.getItem('gemini_voice') || 'Puck',
-  systemPrompt: localStorage.getItem('gemini_system_prompt') || 'Kamu adalah host live stream AI di TikTok bernama Maya. Kamu ceria, ramah, suka bercanda, dan ekspresif. Jawab komentar penonton dalam bahasa Indonesia santai secara langsung dan padat (1-2 kalimat). Sapa nama penonton yang bertanya.',
+  voice: localStorage.getItem('gemini_voice') || 'Aoede',
+  systemPrompt: localStorage.getItem('gemini_system_prompt') || 'Kamu adalah Maya, streamer AI yang cantik, cerdas, ramah, dan mempesona di TikTok Live. Jawab setiap komentar penonton secara langsung, padat (1-2 kalimat), dalam bahasa Indonesia yang anggun, santai, dan menyenangkan. Sapa penonton dengan hangat.',
   tiktokUsername: localStorage.getItem('tiktok_username') || '',
   filterMode: localStorage.getItem('tiktok_filter_mode') || 'all',
   cooldownSeconds: parseInt(localStorage.getItem('tiktok_cooldown') || '4', 10),
@@ -66,6 +77,31 @@ inputCooldown.addEventListener('input', () => {
 const avatarContainer = document.getElementById('avatar-viewport');
 const avatarRenderer = new AvatarRenderer(avatarContainer);
 
+// Setup loading indicator
+avatarRenderer.setLoadingCallback((isLoading, text) => {
+  if (isLoading) {
+    stageLoaderEl.classList.add('visible');
+    loaderStatusEl.textContent = text || 'Memuat...';
+  } else {
+    stageLoaderEl.classList.remove('visible');
+  }
+});
+
+// Auto-load high-quality female 3D character on startup
+async function loadDefaultAvatar() {
+  try {
+    await avatarRenderer.loadModel(weddingGirlUrl, 'Avatar 3D');
+  } catch (err) {
+    console.warn('Gagal memuat GLB default, mencoba VRM fallback...', err);
+    try {
+      await avatarRenderer.loadModel(sampleVrmUrl, 'Sample VRM');
+    } catch (e) {
+      console.error('Gagal memuat model:', e);
+    }
+  }
+}
+loadDefaultAvatar();
+
 // --- 3. Initialize Gemini Live Client ---
 let geminiClient = new GeminiLiveClient({
   apiKey: config.apiKey,
@@ -73,19 +109,19 @@ let geminiClient = new GeminiLiveClient({
   voice: config.voice,
   systemInstruction: config.systemPrompt,
   onStatusChange: (status, message) => {
-    geminiStatusEl.className = `badge-status ${status}`;
+    geminiStatusEl.className = `status-pill ${status === 'connected' ? 'active' : status === 'error' ? 'error' : ''}`;
     geminiStatusEl.querySelector('.text').textContent = message;
   },
   onTranscript: (text) => {
-    transcriptDisplayEl.textContent = text;
+    speechTextEl.textContent = text;
   },
   onAudioStart: () => {
-    speakerNameEl.textContent = `Maya (${config.voice}) Berbicara...`;
-    speakerNameEl.style.color = '#10b981';
+    speakerTitleEl.textContent = `Maya (${config.voice}) Berbicara`;
+    speakerTitleEl.style.color = '#10b981';
   },
   onAudioEnd: () => {
-    speakerNameEl.textContent = 'Maya Mendengarkan...';
-    speakerNameEl.style.color = '#00f0ff';
+    speakerTitleEl.textContent = 'Maya Mendengarkan';
+    speakerTitleEl.style.color = 'var(--accent-rose)';
   },
   onError: (errMsg) => {
     alert(errMsg);
@@ -95,14 +131,14 @@ let geminiClient = new GeminiLiveClient({
 // Link Audio volume to Avatar lip-sync and 3D visualizer
 avatarRenderer.setAudioVolumeGetter(() => geminiClient.getAudioVolume());
 
-// Animate soundwave visualizer
+// Animate soundwave bars
 const soundwaveBars = soundwaveEl.querySelectorAll('.soundwave-bar');
 function updateSoundwave() {
   requestAnimationFrame(updateSoundwave);
   const vol = geminiClient.getAudioVolume();
   soundwaveBars.forEach((bar, index) => {
-    const scale = Math.sin(Date.now() * 0.01 + index) * 0.5 + 0.5;
-    const height = Math.max(3, vol * 14 * scale);
+    const scale = Math.sin(Date.now() * 0.012 + index * 0.8) * 0.5 + 0.5;
+    const height = Math.max(3, vol * 16 * scale);
     bar.style.height = `${height}px`;
   });
 }
@@ -114,7 +150,7 @@ const tiktokManager = new TikTokLiveManager({
   filterMode: config.filterMode,
   cooldownSeconds: config.cooldownSeconds,
   onStatusChange: (status, message) => {
-    tiktokStatusEl.className = `badge-status ${status}`;
+    tiktokStatusEl.className = `status-pill ${status === 'connected' ? 'active' : status === 'error' ? 'error' : ''}`;
     tiktokStatusEl.querySelector('.text').textContent = message;
   },
   onNewComment: (comment) => {
@@ -128,10 +164,9 @@ const tiktokManager = new TikTokLiveManager({
   onTriggerAiReply: async (commentData) => {
     updateQueueBadge();
     if (!geminiClient.isConnected) {
-      console.warn('Gemini belum terhubung, mencoba menyambungkan...');
       geminiClient.connect();
     }
-    transcriptDisplayEl.textContent = `[Merespon ${commentData.nickname}...]: "${commentData.comment}"`;
+    speechTextEl.textContent = `[Merespon ${commentData.nickname}]: "${commentData.comment}"`;
     geminiClient.sendComment(commentData.nickname, commentData.comment);
   }
 });
@@ -142,24 +177,27 @@ function updateQueueBadge() {
 }
 
 function appendChatCard(data) {
-  const card = document.createElement('div');
-  card.className = 'chat-card';
-  card.innerHTML = `
-    <div class="user-name">@${data.uniqueId}</div>
-    <div class="comment-text">${escapeHtml(data.comment)}</div>
+  const item = document.createElement('div');
+  item.className = 'chat-item';
+  item.innerHTML = `
+    <div class="author-line">@${escapeHtml(data.uniqueId)}</div>
+    <div class="comment-body">${escapeHtml(data.comment)}</div>
   `;
-  chatFeedEl.appendChild(card);
+  chatFeedEl.appendChild(item);
   chatFeedEl.scrollTop = chatFeedEl.scrollHeight;
 }
 
 function appendGiftCard(data) {
-  const card = document.createElement('div');
-  card.className = 'chat-card gift-card';
-  card.innerHTML = `
-    <div class="user-name">🎁 @${data.nickname}</div>
-    <div class="comment-text">Mengirim <strong>${escapeHtml(data.giftName)}</strong> x${data.repeatCount}!</div>
+  const item = document.createElement('div');
+  item.className = 'chat-item gift-item';
+  item.innerHTML = `
+    <div class="author-line">
+      <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/></svg>
+      @${escapeHtml(data.nickname)}
+    </div>
+    <div class="comment-body">Mengirim <strong>${escapeHtml(data.giftName)}</strong> x${data.repeatCount}!</div>
   `;
-  chatFeedEl.appendChild(card);
+  chatFeedEl.appendChild(item);
   chatFeedEl.scrollTop = chatFeedEl.scrollHeight;
 }
 
@@ -169,7 +207,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Auto connect if API key exists
+// Auto connect if credentials exist
 if (config.apiKey) {
   geminiClient.connect();
 }
@@ -177,49 +215,61 @@ if (config.tiktokUsername) {
   tiktokManager.connectTikFinity();
 }
 
-// Load Default Sample VRM Model
-btnLoadSampleVrm.addEventListener('click', async () => {
-  try {
-    transcriptDisplayEl.textContent = 'Memuat Karakter 3D VRM Bawaan...';
-    await avatarRenderer.loadVRM(sampleVrmUrl);
-    transcriptDisplayEl.textContent = 'Karakter 3D VRM Bawaan berhasil dimuat! Siap live stream.';
-  } catch (err) {
-    alert(`Gagal memuat karakter bawaan: ${err.message}`);
-  }
-});
+// --- 5. Event Listeners ---
 
-// Custom 3D File Loader (VRM, GLB, GLTF)
-vrmFileInput.addEventListener('change', async (e) => {
+// File loader (VRM, GLB, GLTF)
+modelFileInput.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   try {
-    transcriptDisplayEl.textContent = `Memuat model 3D: ${file.name}...`;
-    await avatarRenderer.loadVRM(file);
-    transcriptDisplayEl.textContent = `Model 3D ${file.name} berhasil dimuat! Siap live.`;
+    await avatarRenderer.loadModel(file, file.name);
+    speechTextEl.textContent = `Model ${file.name} berhasil dimuat.`;
   } catch (err) {
-    alert(`Gagal memuat model 3D: ${err.message}`);
+    alert(`Gagal memuat model: ${err.message}`);
   }
 });
 
-btnResetAvatar.addEventListener('click', () => {
-  avatarRenderer.resetToCyberAvatar();
-  settingsModal.classList.remove('active');
-  transcriptDisplayEl.textContent = 'Kembali ke 3D Cyber Core Avatar bawaan.';
+// Drag and drop 3D file directly into window
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files?.[0];
+  if (file && (file.name.endsWith('.glb') || file.name.endsWith('.vrm') || file.name.endsWith('.gltf'))) {
+    try {
+      await avatarRenderer.loadModel(file, file.name);
+      speechTextEl.textContent = `Model ${file.name} berhasil dimuat.`;
+    } catch (err) {
+      alert(`Gagal memuat model: ${err.message}`);
+    }
+  }
 });
 
-// OBS Mode Toggle
-let isObsMode = false;
-btnToggleObs.addEventListener('click', () => {
-  isObsMode = !isObsMode;
-  document.body.classList.toggle('obs-mode', isObsMode);
-  btnToggleObs.classList.toggle('btn-primary', isObsMode);
-  btnToggleObs.querySelector('span').textContent = isObsMode ? '🖥️' : '🎥';
-});
+// OBS Mode
+let isObs = false;
+function toggleObsMode() {
+  isObs = !isObs;
+  document.body.classList.toggle('obs-mode', isObs);
+  btnToggleObs.classList.toggle('btn-accent', isObs);
+}
+btnToggleObs.addEventListener('click', toggleObsMode);
+if (btnMobileObs) btnMobileObs.addEventListener('click', toggleObsMode);
 
-// Modal Open/Close
-btnOpenSettings.addEventListener('click', () => settingsModal.classList.add('active'));
-btnCloseSettings.addEventListener('click', () => settingsModal.classList.remove('active'));
-btnCancelSettings.addEventListener('click', () => settingsModal.classList.remove('active'));
+// Mobile Chat Drawer Toggle
+if (btnMobileChat) {
+  btnMobileChat.addEventListener('click', () => {
+    sidebarEl.classList.toggle('sheet-open');
+    btnMobileChat.classList.toggle('active', sidebarEl.classList.contains('sheet-open'));
+  });
+}
+
+// Settings Modal
+const openSettings = () => settingsModal.classList.add('active');
+const closeSettings = () => settingsModal.classList.remove('active');
+
+btnOpenSettings.addEventListener('click', openSettings);
+if (btnMobileSettings) btnMobileSettings.addEventListener('click', openSettings);
+btnCloseSettings.addEventListener('click', closeSettings);
+btnCancelSettings.addEventListener('click', closeSettings);
 
 // Save Settings
 btnSaveSettings.addEventListener('click', () => {
@@ -231,7 +281,6 @@ btnSaveSettings.addEventListener('click', () => {
   config.filterMode = selectFilterMode.value;
   config.cooldownSeconds = parseInt(inputCooldown.value, 10);
 
-  // Save to local storage
   localStorage.setItem('gemini_api_key', config.apiKey);
   localStorage.setItem('gemini_model', config.model);
   localStorage.setItem('gemini_voice', config.voice);
@@ -240,7 +289,7 @@ btnSaveSettings.addEventListener('click', () => {
   localStorage.setItem('tiktok_filter_mode', config.filterMode);
   localStorage.setItem('tiktok_cooldown', config.cooldownSeconds);
 
-  // Re-configure Gemini Live
+  // Update Gemini
   geminiClient.disconnect();
   geminiClient.apiKey = config.apiKey;
   geminiClient.model = config.model;
@@ -250,7 +299,7 @@ btnSaveSettings.addEventListener('click', () => {
     geminiClient.connect();
   }
 
-  // Re-configure TikTok Manager
+  // Update TikTok
   tiktokManager.setTargetUsername(config.tiktokUsername);
   tiktokManager.filterMode = config.filterMode;
   tiktokManager.cooldownSeconds = config.cooldownSeconds;
@@ -258,7 +307,7 @@ btnSaveSettings.addEventListener('click', () => {
     tiktokManager.connectTikFinity();
   }
 
-  settingsModal.classList.remove('active');
+  closeSettings();
 });
 
 // Simulator Chat Send
@@ -277,6 +326,6 @@ simText.addEventListener('keydown', (e) => {
 });
 
 btnQuickGift.addEventListener('click', () => {
-  const user = simUser.value.trim() || 'Sultan_TikTok';
+  const user = simUser.value.trim() || 'Sultan';
   tiktokManager.simulateGift(user, 'Mawar Merah', 1);
 });
