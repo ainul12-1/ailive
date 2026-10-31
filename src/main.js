@@ -516,11 +516,38 @@ const btnSimGreet = document.getElementById('btn-sim-greet');
 if (btnQuickGreet) btnQuickGreet.addEventListener('click', triggerGreetRecentJoiners);
 if (btnSimGreet) btnSimGreet.addEventListener('click', triggerGreetRecentJoiners);
 
-// Modular Hand Poses & Expressions (❤️ Love, 🖕 Jari Tengah, 🙈 Sembunyi, ✌️ Peace, 👋 Wave, 💃 Joget, 🙏 Makasih)
+// Modular Hand Poses & Expressions (❤️ Love, 🖕 Jari Tengah, 🙈 Sembunyi/👀 Muncul, ✌️ Peace, 👋 Wave, 💃 Joget, 🙏 Makasih)
+function updateHideButtons(isHiding) {
+  document.querySelectorAll('[data-pose="hide"]').forEach((btn) => {
+    if (isHiding) {
+      btn.innerHTML = '👀 Muncul';
+      btn.setAttribute('title', 'Klik untuk keluar dari persembunyian');
+      btn.classList.add('btn-accent');
+    } else {
+      btn.innerHTML = '🙈 Sembunyi';
+      btn.setAttribute('title', 'Pose Petak Umpet');
+      btn.classList.remove('btn-accent');
+    }
+  });
+}
+
+avatarRenderer.onHideStateChange = (isHiding) => {
+  updateHideButtons(isHiding);
+};
+
 document.querySelectorAll('.stage-pose-pill, .pose-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const pose = btn.getAttribute('data-pose');
     if (!pose) return;
+
+    if (pose === 'hide') {
+      const isNowHiding = avatarRenderer.toggleHide();
+      speechTextEl.textContent = isNowHiding
+        ? '[Avatar Sembunyi]: Lari malu-malu sembunyi di balik dinding... 👀'
+        : '[Avatar Muncul]: Lari ceria kembali ke panggung! ✨';
+      return;
+    }
+
     avatarRenderer.triggerReaction(pose, 3.5);
     speechTextEl.textContent = `[Pose Avatar]: Menjalankan pose "${pose}"...`;
   });
