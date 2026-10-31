@@ -92,18 +92,6 @@ jobs:
       - name: Initialize Android
         run: npx tauri android init --ci
 
-      - name: Configure Android Permissions & Network Security
-        run: |
-          MANIFEST="src-tauri/gen/android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
-              sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' "$MANIFEST"
-            fi
-            sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
-            echo "Updated AndroidManifest.xml successfully:"
-            cat "$MANIFEST"
-          fi
-
       - name: Make gradlew executable
         run: chmod +x src-tauri/gen/android/gradlew || true
 
