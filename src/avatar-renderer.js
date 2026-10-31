@@ -72,7 +72,9 @@ export class AvatarRenderer {
       powerPreference: 'high-performance',
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Super enteng: cap DPR at 1.5 on mobile to guarantee smooth 60/120fps without overheating
+    const isMobile = width < 768;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
@@ -327,6 +329,8 @@ export class AvatarRenderer {
     this.camera.fov = aspect < 0.75 ? baseFov + (0.75 - aspect) * 28 : baseFov;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    const isMobile = width < 768;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
   }
 
   animate() {

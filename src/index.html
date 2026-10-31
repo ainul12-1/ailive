@@ -87,11 +87,24 @@
         </div>
       </section>
 
+      <!-- Mobile Sheet Backdrop Overlay -->
+      <div class="sheet-backdrop" id="sheet-backdrop"></div>
+
       <!-- Sidebar / Bottom Sheet -->
       <aside class="studio-sidebar" id="sidebar">
+        <!-- iOS Sheet Pull Handle (Mobile) -->
+        <div class="sheet-grab-bar" id="sheet-grab-bar">
+          <div class="sheet-handle"></div>
+        </div>
+
         <div class="sidebar-headline">
           <span>Komentar Live Stream</span>
-          <span class="queue-badge" id="queue-badge">Antrian: 0</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="queue-badge" id="queue-badge">Antrian: 0</span>
+            <button id="btn-close-sheet" class="sheet-close-btn" aria-label="Tutup Panel">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
 
         <!-- Chat Stream Feed -->

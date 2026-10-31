@@ -316,18 +316,38 @@ function toggleObsMode() {
 btnToggleObs.addEventListener('click', toggleObsMode);
 if (btnMobileObs) btnMobileObs.addEventListener('click', toggleObsMode);
 
-// Mobile Chat Drawer Toggle
+// Mobile Chat Drawer Controls
+const sheetBackdrop = document.getElementById('sheet-backdrop');
+const btnCloseSheet = document.getElementById('btn-close-sheet');
+
+function closeMobileSheet() {
+  sidebarEl.classList.remove('sheet-open');
+  if (btnMobileChat) btnMobileChat.classList.remove('active');
+  const mobileDock = document.querySelector('.mobile-dock');
+  if (mobileDock) mobileDock.classList.remove('dock-hidden');
+  if (sheetBackdrop) sheetBackdrop.classList.remove('visible');
+}
+
+function openMobileSheet() {
+  sidebarEl.classList.add('sheet-open');
+  if (btnMobileChat) btnMobileChat.classList.add('active');
+  const mobileDock = document.querySelector('.mobile-dock');
+  if (mobileDock) mobileDock.classList.add('dock-hidden');
+  if (sheetBackdrop) sheetBackdrop.classList.add('visible');
+}
+
 if (btnMobileChat) {
   btnMobileChat.addEventListener('click', () => {
-    const isOpen = sidebarEl.classList.toggle('sheet-open');
-    btnMobileChat.classList.toggle('active', isOpen);
-    // Hide mobile dock when drawer is open to prevent overlap
-    const mobileDock = document.querySelector('.mobile-dock');
-    if (mobileDock) {
-      mobileDock.classList.toggle('dock-hidden', isOpen);
+    if (sidebarEl.classList.contains('sheet-open')) {
+      closeMobileSheet();
+    } else {
+      openMobileSheet();
     }
   });
 }
+
+if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeMobileSheet);
+if (btnCloseSheet) btnCloseSheet.addEventListener('click', closeMobileSheet);
 
 // Settings Modal
 const openSettings = () => settingsModal.classList.add('active');
