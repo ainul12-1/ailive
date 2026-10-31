@@ -74,11 +74,6 @@ jobs:
           ndk-version: 'r26d'
           link-to-sdk: true
 
-      - name: Setup Perl (Required for OpenSSL Android compilation)
-        uses: shogo82148/actions-setup-perl@v1
-        with:
-          perl-version: '5.34'
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
