@@ -30,12 +30,16 @@
         </div>
       </div>
 
-      <div class="nav-actions">
-        <!-- Load VRM 3D Model -->
-        <label for="vrm-file-input" class="btn-icon" title="Upload 3D VRM Avatar">
-          <span>🎭</span> Load VRM
+        <!-- Default 3D Character Preset -->
+        <button id="btn-load-sample-vrm" class="btn-icon" title="Gunakan Karakter 3D VRM Bawaan">
+          <span>✨</span> Karakter 3D Bawaan
+        </button>
+
+        <!-- Load 3D Model (VRM, GLB, GLTF) -->
+        <label for="vrm-file-input" class="btn-icon" title="Upload 3D Model (VRM / GLB)">
+          <span>🎭</span> Upload 3D Sendiri
         </label>
-        <input type="file" id="vrm-file-input" accept=".vrm" style="display: none;" />
+        <input type="file" id="vrm-file-input" accept=".vrm,.glb,.gltf" style="display: none;" />
 
         <!-- OBS Overlay Mode Toggle -->
         <button id="btn-toggle-obs" class="btn-icon" title="Toggle OBS Mode (Transparent)">

@@ -158,16 +158,15 @@ export class AvatarRenderer {
       loader.load(
         url,
         (gltf) => {
-          const vrm = gltf.userData.vrm;
-          if (!vrm) {
-            reject(new Error('Format file bukan VRM yang valid.'));
-            return;
-          }
-
-          // Clean up old VRM
+          // Clean up old models
           if (this.currentVrm) {
             this.scene.remove(this.currentVrm.scene);
             VRMUtils.deepDispose(this.currentVrm.scene);
+            this.currentVrm = null;
+          }
+          if (this.currentGltf) {
+            this.scene.remove(this.currentGltf);
+            this.currentGltf = null;
           }
 
           // Hide default cyber avatar
@@ -175,31 +174,69 @@ export class AvatarRenderer {
             this.cyberCoreGroup.visible = false;
           }
 
-          // Setup new VRM
-          this.currentVrm = vrm;
-          VRMUtils.rotateVRM0(vrm);
-          this.scene.add(vrm.scene);
+          const vrm = gltf.userData.vrm;
+          if (vrm) {
+            // --- 1. VRM Model ---
+            this.currentVrm = vrm;
+            VRMUtils.rotateVRM0(vrm);
+            this.scene.add(vrm.scene);
 
-          // Adjust camera to frame avatar upper body / face nicely
-          const headNode = vrm.humanoid?.getNormalizedBoneNode('head');
-          if (headNode) {
-            const headPos = new THREE.Vector3();
-            headNode.getWorldPosition(headPos);
-            this.camera.position.set(0, headPos.y - 0.05, 1.15);
-            this.camera.lookAt(0, headPos.y - 0.05, 0);
+            const headNode = vrm.humanoid?.getNormalizedBoneNode('head');
+            if (headNode) {
+              const headPos = new THREE.Vector3();
+              headNode.getWorldPosition(headPos);
+              this.camera.position.set(0, headPos.y - 0.05, 1.15);
+              this.camera.lookAt(0, headPos.y - 0.05, 0);
+            } else {
+              this.camera.position.set(0, 1.35, 1.3);
+              this.camera.lookAt(0, 1.3, 0);
+            }
+            console.log('Model VRM berhasil dimuat!');
+            resolve(vrm);
           } else {
-            this.camera.position.set(0, 1.35, 1.3);
-            this.camera.lookAt(0, 1.3, 0);
-          }
+            // --- 2. Standard GLB / GLTF Model ---
+            const modelScene = gltf.scene;
+            this.currentGltf = modelScene;
 
-          console.log('VRM model loaded successfully!');
-          resolve(vrm);
+            // Auto-scale and center the 3D model
+            const box = new THREE.Box3().setFromObject(modelScene);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 1.6 / (maxDim || 1);
+            modelScene.scale.set(scale, scale, scale);
+
+            // Center on stage
+            modelScene.position.x = -center.x * scale;
+            modelScene.position.y = -box.min.y * scale;
+            modelScene.position.z = -center.z * scale;
+
+            this.scene.add(modelScene);
+
+            // Frame camera
+            this.camera.position.set(0, 1.3, 1.6);
+            this.camera.lookAt(0, 1.1, 0);
+
+            // Find morph targets if available
+            this.morphMeshes = [];
+            modelScene.traverse((child) => {
+              if (child.isMesh && child.morphTargetInfluences && child.morphTargetInfluences.length > 0) {
+                this.morphMeshes.push(child);
+              }
+            });
+
+            console.log('Model GLB/GLTF berhasil dimuat! Morph meshes:', this.morphMeshes.length);
+            resolve(modelScene);
+          }
         },
         (progress) => {
-          console.log('Loading VRM:', (progress.loaded / progress.total) * 100, '%');
+          if (progress.total > 0) {
+            console.log('Loading 3D:', Math.round((progress.loaded / progress.total) * 100), '%');
+          }
         },
         (error) => {
-          console.error('Error loading VRM:', error);
+          console.error('Error loading 3D model:', error);
           reject(error);
         }
       );
@@ -211,6 +248,10 @@ export class AvatarRenderer {
       this.scene.remove(this.currentVrm.scene);
       VRMUtils.deepDispose(this.currentVrm.scene);
       this.currentVrm = null;
+    }
+    if (this.currentGltf) {
+      this.scene.remove(this.currentGltf);
+      this.currentGltf = null;
     }
     if (this.cyberCoreGroup) {
       this.cyberCoreGroup.visible = true;
@@ -302,6 +343,21 @@ export class AvatarRenderer {
 
       // Floating bobbing
       this.cyberCoreGroup.position.y = 1.2 + Math.sin(elapsedTime * 1.5) * 0.04;
+    }
+
+    // 3. If Standard GLB / GLTF Model is Active:
+    if (this.currentGltf) {
+      // Natural subtle idle sway
+      this.currentGltf.rotation.y = Math.sin(elapsedTime * 0.7) * 0.06;
+
+      // React to audio volume when speaking (subtle nod / pulse)
+      if (this.morphMeshes && this.morphMeshes.length > 0) {
+        this.morphMeshes.forEach((mesh) => {
+          if (mesh.morphTargetInfluences && mesh.morphTargetInfluences.length > 0) {
+            mesh.morphTargetInfluences[0] = Math.min(1.0, volume * 1.5);
+          }
+        });
+      }
     }
 
     this.renderer.render(this.scene, this.camera);

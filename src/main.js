@@ -1,6 +1,7 @@
 import { GeminiLiveClient } from './gemini-live.js';
 import { AvatarRenderer } from './avatar-renderer.js';
 import { TikTokLiveManager } from './tiktok-live.js';
+import sampleVrmUrl from './assets/sample.vrm?url';
 
 // Elements
 const geminiStatusEl = document.getElementById('gemini-status');
@@ -10,6 +11,7 @@ const speakerNameEl = document.getElementById('speaker-name');
 const chatFeedEl = document.getElementById('chat-feed');
 const queueBadgeEl = document.getElementById('queue-badge');
 const soundwaveEl = document.getElementById('soundwave');
+const btnLoadSampleVrm = document.getElementById('btn-load-sample-vrm');
 const vrmFileInput = document.getElementById('vrm-file-input');
 const btnToggleObs = document.getElementById('btn-toggle-obs');
 const btnOpenSettings = document.getElementById('btn-open-settings');
@@ -175,18 +177,27 @@ if (config.tiktokUsername) {
   tiktokManager.connectTikFinity();
 }
 
-// --- 5. UI Event Listeners ---
+// Load Default Sample VRM Model
+btnLoadSampleVrm.addEventListener('click', async () => {
+  try {
+    transcriptDisplayEl.textContent = 'Memuat Karakter 3D VRM Bawaan...';
+    await avatarRenderer.loadVRM(sampleVrmUrl);
+    transcriptDisplayEl.textContent = 'Karakter 3D VRM Bawaan berhasil dimuat! Siap live stream.';
+  } catch (err) {
+    alert(`Gagal memuat karakter bawaan: ${err.message}`);
+  }
+});
 
-// VRM 3D File Loader
+// Custom 3D File Loader (VRM, GLB, GLTF)
 vrmFileInput.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   try {
-    transcriptDisplayEl.textContent = `Memuat model 3D VRM: ${file.name}...`;
+    transcriptDisplayEl.textContent = `Memuat model 3D: ${file.name}...`;
     await avatarRenderer.loadVRM(file);
     transcriptDisplayEl.textContent = `Model 3D ${file.name} berhasil dimuat! Siap live.`;
   } catch (err) {
-    alert(`Gagal memuat model VRM: ${err.message}`);
+    alert(`Gagal memuat model 3D: ${err.message}`);
   }
 });
 
