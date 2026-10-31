@@ -68,11 +68,12 @@ jobs:
           java-version: '17'
 
       - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
-        with:
-          ndk-version: 'r26d'
-          link-to-sdk: true
+        run: |
+          ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          NDK_PATH=$(ls -d $ANDROID_HOME/ndk/* | tail -n 1)
+          echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          echo "Using Android NDK: $NDK_PATH"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -108,9 +109,6 @@ jobs:
 
       - name: Build Android APK (Debug / Installable)
         run: npx tauri android build --apk --target aarch64 --debug
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
