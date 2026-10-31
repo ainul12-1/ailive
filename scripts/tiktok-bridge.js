@@ -12,7 +12,21 @@
 import { WebcastPushConnection } from 'tiktok-live-connector';
 import { WebSocketServer } from 'ws';
 import http from 'http';
+import os from 'os';
 
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return '192.168.1.X';
+}
+
+const localIp = getLocalIpAddress();
 const username = process.argv[2] || process.env.TIKTOK_USERNAME;
 const port = parseInt(process.argv[3] || process.env.PORT || '21213', 10);
 
@@ -40,8 +54,10 @@ const wss = new WebSocketServer({ server });
 
 console.log(`\n======================================================`);
 console.log(`🎭 AILIVE - TikTok Live Stream Bridge`);
-console.log(`📡 WebSocket Server aktif di ws://0.0.0.0:${port}`);
-console.log(`🎯 Menghubungkan ke live @${cleanUsername}...`);
+console.log(`🎯 Target Akun : @${cleanUsername}`);
+console.log(`💻 Untuk PC/Web: ws://localhost:${port}`);
+console.log(`📱 Untuk HP APK: ws://${localIp}:${port}`);
+console.log(`   (Ketik alamat ws://${localIp}:${port} di Pengaturan APK HP Anda)`);
 console.log(`======================================================\n`);
 
 // Helper to broadcast to all connected AILIVE clients (Desktop / Mobile)

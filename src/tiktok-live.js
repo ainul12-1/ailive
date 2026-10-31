@@ -129,6 +129,18 @@ export class TikTokLiveManager {
     }
 
     const targetUrl = this.wsUrl;
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isLocalhost = targetUrl.includes('localhost') || targetUrl.includes('127.0.0.1');
+
+    if (isMobile && isLocalhost) {
+      this.onStatusChange(
+        'idle',
+        'HP Android: Masukkan IP PC (misal: ws://192.168.1.XX:21213) di Pengaturan atau gunakan Simulator'
+      );
+      console.warn('⚠️ [AILIVE Android]: localhost tidak dapat diakses dari HP. Silakan atur IP PC di Pengaturan.');
+      return;
+    }
+
     this.onStatusChange('connecting', `Menyambungkan (${targetUrl})...`);
 
     try {

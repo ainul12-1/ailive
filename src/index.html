@@ -236,9 +236,10 @@
         <div class="field-group">
           <label for="input-tiktok-ws-url">Server WebSocket TikTok (TikFinity / Bridge)</label>
           <input type="text" id="input-tiktok-ws-url" class="input-studio" placeholder="ws://localhost:21213" value="ws://localhost:21213" />
-          <span style="font-size: 11px; color: var(--text-muted);">
-            Default: <code>ws://localhost:21213</code>. Jika buka dari HP Android, ganti localhost dengan IP PC (misal: <code>ws://192.168.1.10:21213</code>).
-          </span>
+          <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+            <span>💻 <b>Di Komputer PC:</b> Cukup masukkan username TikTok di atas, aplikasi PC akan membaca komen secara otomatis.</span>
+            <span>📱 <b>Di HP Android:</b> Sambungkan HP ke Wi-Fi yang sama dengan PC, lalu ganti localhost dengan IP PC Anda (contoh: <code>ws://192.168.1.15:21213</code>). Anda juga dapat langsung menguji respon avatar lewat panel Simulator di layar utama!</span>
+          </div>
         </div>
 
         <!-- Auto-Reply Filter -->
