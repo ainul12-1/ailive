@@ -28,12 +28,40 @@ export class TikTokLiveManager {
     this._aiFinishResolver = null;
     this._hasTauriListeners = false;
 
+    // Deduplication tracker (15s sliding window)
+    this.seenCommentKeys = new Map();
+
     // Callbacks
     this.onStatusChange = options.onStatusChange || (() => {});
     this.onNewComment = options.onNewComment || (() => {});
     this.onNewGift = options.onNewGift || (() => {});
     this.onNewLike = options.onNewLike || (() => {});
+    this.onNewJoiner = options.onNewJoiner || (() => {});
     this.onTriggerAiReply = options.onTriggerAiReply || (() => {});
+  }
+
+  _isDuplicateComment(author, text, msgId = null) {
+    const now = Date.now();
+    // Clean up entries older than 30s
+    for (const [k, time] of this.seenCommentKeys.entries()) {
+      if (now - time > 30000) {
+        this.seenCommentKeys.delete(k);
+      }
+    }
+
+    const key = (msgId && msgId !== '0' && msgId !== 0)
+      ? `msg_${msgId}`
+      : `txt_${String(author).toLowerCase()}_${String(text).toLowerCase()}`;
+
+    if (this.seenCommentKeys.has(key)) {
+      const lastSeen = this.seenCommentKeys.get(key);
+      if (now - lastSeen < 15000) {
+        return true; // Duplicate detected
+      }
+    }
+
+    this.seenCommentKeys.set(key, now);
+    return false;
   }
 
   setAiSpeakingState(isSpeaking) {
@@ -93,6 +121,10 @@ export class TikTokLiveManager {
 
           await eventApi.listen('tiktok-like', (event) => {
             this.handleIncomingEvent({ event: 'like', data: event.payload });
+          });
+
+          await eventApi.listen('tiktok-join', (event) => {
+            this.handleIncomingEvent({ event: 'join', data: event.payload });
           });
 
           await eventApi.listen('tiktok-status', (event) => {
@@ -218,6 +250,18 @@ export class TikTokLiveManager {
     const eventType = String(raw.event || raw.type || '').toLowerCase();
     const data = raw.data || raw;
 
+    // 0. JOIN / MEMBER EVENT (Penonton baru masuk)
+    const isJoin = eventType === 'join' || eventType === 'member';
+    if (isJoin) {
+      const user = data.user || raw.user || {};
+      const uniqueId = String(
+        user.uniqueId || user.username || data.uniqueId || raw.uniqueId || user.nickname || data.nickname || 'Penonton'
+      ).replace(/^@/, '').trim();
+      const nickname = String(user.nickname || data.nickname || uniqueId || 'Penonton').trim();
+      this.onNewJoiner({ uniqueId, nickname, timestamp: Date.now() });
+      return;
+    }
+
     // 1. CHAT / COMMENT EVENT
     const isChat =
       eventType === 'chat' ||
@@ -254,10 +298,19 @@ export class TikTokLiveManager {
         return;
       }
 
+      const cleanUniqueId = String(uniqueId).replace(/^@/, '').trim();
+      const cleanComment = String(comment).trim();
+
+      // Anti-duplicate protection: ignore identical comments from same user within 15s or same msgId
+      if (this._isDuplicateComment(cleanUniqueId, cleanComment, data.msgId || raw.msgId)) {
+        console.log(`🛡️ [Anti-Duplicate]: Mengabaikan komentar duplikat (@${cleanUniqueId}: "${cleanComment}")`);
+        return;
+      }
+
       const commentData = {
-        uniqueId: String(uniqueId).replace(/^@/, '').trim(),
+        uniqueId: cleanUniqueId,
         nickname: String(nickname).trim(),
-        comment: String(comment).trim(),
+        comment: cleanComment,
         avatar: user.profilePictureUrl || data.profilePictureUrl || null,
         timestamp: Date.now(),
       };

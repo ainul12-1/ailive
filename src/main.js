@@ -187,6 +187,17 @@ function updateSoundwave() {
 updateSoundwave();
 
 // --- 4. Initialize TikTok Live Manager ---
+const recentJoiners = []; // Latest viewers who entered live stream
+
+function updateGreetButtons() {
+  const count = Math.min(3, recentJoiners.length);
+  const btnQuick = document.getElementById('btn-quick-greet');
+  const btnSim = document.getElementById('btn-sim-greet');
+  const label = count > 0 ? `👋 Sapa ${count} Baru` : `👋 Sapa 3 Baru`;
+  if (btnQuick) btnQuick.textContent = label;
+  if (btnSim) btnSim.textContent = label;
+}
+
 const tiktokManager = new TikTokLiveManager({
   targetUsername: config.tiktokUsername,
   wsUrl: config.tiktokWsUrl,
@@ -213,6 +224,13 @@ const tiktokManager = new TikTokLiveManager({
     // Spontaneous emotional gratitude gesture for gifts
     avatarRenderer.triggerReaction('thanks');
   },
+  onNewJoiner: (joiner) => {
+    if (!recentJoiners.some((j) => j.nickname === joiner.nickname || j.uniqueId === joiner.uniqueId)) {
+      recentJoiners.unshift(joiner);
+      if (recentJoiners.length > 15) recentJoiners.pop();
+      updateGreetButtons();
+    }
+  },
   onTriggerAiReply: async (commentData) => {
     updateQueueBadge();
     if (!geminiClient.isConnected) {
@@ -224,13 +242,13 @@ const tiktokManager = new TikTokLiveManager({
       } else {
         // Offline preview simulation with full speech, gesture, and lip-sync
         const greetings = [
-          `Halo kak ${commentData.nickname}! Makasih banyak udah mampir dan ngobrol di live Maya hari ini!`,
-          `Hai ${commentData.nickname}! Wah seru banget pertanyaannya, salam kenal ya!`,
-          `Makasih ${commentData.nickname}! Tetap semangat dan enjoy nonton live streaming ini ya!`
+          `Halo kak ${commentData.nickname}! Makasih udah mampir dan ngobrol ya!`,
+          `Hai ${commentData.nickname}! Senang banget kamu hadir di live kita!`,
+          `Makasih ${commentData.nickname}! Enjoy siarannya ya!`
         ];
         const reply = greetings[Math.floor(Math.random() * greetings.length)];
         speechTextEl.textContent = `[Maya merespon ${commentData.nickname}]: "${reply}"`;
-        geminiClient.simulateSpeech(3.5);
+        geminiClient.simulateSpeech(2.8);
       }
       return;
     }
@@ -238,6 +256,34 @@ const tiktokManager = new TikTokLiveManager({
     geminiClient.sendComment(commentData.nickname, commentData.comment);
   },
 });
+
+function triggerGreetRecentJoiners() {
+  let names = [];
+  if (recentJoiners.length > 0) {
+    names = recentJoiners.slice(0, 3).map((j) => j.nickname || j.uniqueId);
+  } else {
+    // Fallback: pick names from recent commenters if no join events yet
+    const commenters = Array.from(chatFeedEl.querySelectorAll('.chat-item:not(.gift-item) .author-line'))
+      .map((el) => el.textContent.replace(/^@/, '').trim())
+      .filter((n) => n && n !== 'Penonton');
+    const uniqueCommenters = Array.from(new Set(commenters));
+    names = uniqueCommenters.slice(-3);
+  }
+
+  if (names.length === 0) {
+    names = ['Sahabat TikTok', 'Teman-teman Online'];
+  }
+
+  const namesText = names.join(', ');
+  speechTextEl.textContent = `[Maya menyapa penonton]: "Halo Kak ${namesText}! Selamat datang di live kita!"`;
+  avatarRenderer.triggerReaction('thanks');
+
+  if (geminiClient.isConnected) {
+    geminiClient.greetJoiners(names);
+  } else {
+    geminiClient.simulateSpeech(2.5);
+  }
+}
 
 function updateQueueBadge() {
   const count = tiktokManager.commentQueue.length;
@@ -386,6 +432,13 @@ settingsModal.addEventListener('click', (e) => {
 
 // Save Settings
 btnSaveSettings.addEventListener('click', () => {
+  const oldApiKey = config.apiKey;
+  const oldModel = config.model;
+  const oldVoice = config.voice;
+  const oldSystemPrompt = config.systemPrompt;
+  const oldTiktokUsername = config.tiktokUsername;
+  const oldTiktokWsUrl = config.tiktokWsUrl;
+
   config.apiKey = inputApiKey.value.trim();
   config.model = selectModel.value;
   config.voice = selectVoice.value;
@@ -409,28 +462,49 @@ btnSaveSettings.addEventListener('click', () => {
   localStorage.setItem('tiktok_filter_mode', config.filterMode);
   localStorage.setItem('tiktok_cooldown', config.cooldownSeconds);
 
-  // Update Gemini
-  geminiClient.disconnect();
-  geminiClient.apiKey = config.apiKey;
-  geminiClient.model = config.model;
-  geminiClient.voice = config.voice;
-  geminiClient.systemInstruction = config.systemPrompt;
-  if (config.apiKey) {
-    geminiClient.connect();
+  // Update Gemini: only reconnect if settings actually changed
+  const geminiSettingsChanged =
+    oldApiKey !== config.apiKey ||
+    oldModel !== config.model ||
+    oldVoice !== config.voice ||
+    oldSystemPrompt !== config.systemPrompt;
+
+  if (geminiSettingsChanged) {
+    geminiClient.disconnect();
+    geminiClient.apiKey = config.apiKey;
+    geminiClient.model = config.model;
+    geminiClient.voice = config.voice;
+    geminiClient.systemInstruction = config.systemPrompt;
+    if (config.apiKey) {
+      geminiClient.connect();
+    }
   }
 
-  // Update TikTok
-  tiktokManager.setTargetUsername(config.tiktokUsername);
-  tiktokManager.setWsUrl(config.tiktokWsUrl);
+  // Update TikTok: ONLY reconnect if target username or ws url was CHANGED!
+  // If streamer username is the same, keep existing connection running smoothly without resetting!
   tiktokManager.filterMode = config.filterMode;
   tiktokManager.cooldownSeconds = config.cooldownSeconds;
-  if (config.tiktokUsername || config.tiktokWsUrl) {
+
+  const tiktokTargetChanged =
+    oldTiktokUsername !== config.tiktokUsername ||
+    oldTiktokWsUrl !== config.tiktokWsUrl;
+
+  if (tiktokTargetChanged && (config.tiktokUsername || config.tiktokWsUrl)) {
+    tiktokManager.disconnect();
+    tiktokManager.setTargetUsername(config.tiktokUsername);
+    tiktokManager.setWsUrl(config.tiktokWsUrl);
     tiktokManager.connect(config.tiktokUsername || config.tiktokWsUrl);
   }
 
   closeSettings();
-  speechTextEl.textContent = 'Pengaturan berhasil disimpan.';
+  speechTextEl.textContent = 'Pengaturan berhasil diperbarui (Live tetap lanjut).';
 });
+
+// Quick Greetings Buttons (Sapa 3 Penonton Baru)
+const btnQuickGreet = document.getElementById('btn-quick-greet');
+const btnSimGreet = document.getElementById('btn-sim-greet');
+if (btnQuickGreet) btnQuickGreet.addEventListener('click', triggerGreetRecentJoiners);
+if (btnSimGreet) btnSimGreet.addEventListener('click', triggerGreetRecentJoiners);
 
 // Simulator Chat Send
 btnSimSend.addEventListener('click', () => {

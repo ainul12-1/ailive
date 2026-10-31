@@ -11,7 +11,7 @@ export class GeminiLiveClient {
     this.voice = options.voice || 'Puck'; // Puck, Charon, Kore, Fenrir, Aoede
     this.systemInstruction =
       options.systemInstruction ||
-      'Kamu adalah host live stream AI bernama Maya. Kamu ceria, gaul, ramah, dan seru. Jawab komentar penonton TikTok secara langsung, singkat (1-2 kalimat), dalam bahasa Indonesia santai. Sapa nama penanya jika ada.';
+      'Kamu adalah host live stream AI bernama Maya. Kamu ceria, ramah, dan seru. Jawab setiap komentar penonton TikTok secara langsung dan SANGAT SINGKAT (cukup 1-2 kalimat pendek saja, maksimal 20 kata). Sapa nama penonton dengan hangat.';
 
     this.ws = null;
     this.isConnected = false;
@@ -157,7 +157,7 @@ export class GeminiLiveClient {
       return false;
     }
 
-    const promptText = `Komentar penonton dari "${author}": "${comment}"`;
+    const promptText = `Komentar dari "${author}": "${comment}". (Jawab ramah dan SANGAT SINGKAT, 1-2 kalimat pendek saja!)`;
 
     const clientContent = {
       clientContent: {
@@ -172,6 +172,40 @@ export class GeminiLiveClient {
     };
 
     // If setup not complete yet, queue the message
+    if (!this.isSetupComplete) {
+      this._pendingMessages.push(clientContent);
+      return true;
+    }
+
+    this.ws.send(JSON.stringify(clientContent));
+    return true;
+  }
+
+  /**
+   * Greet recently joined viewers warmly and concisely
+   */
+  greetJoiners(names) {
+    if (!names || names.length === 0) return false;
+    const namesList = names.map(n => `Kak ${n}`).join(', ');
+    const promptText = `Penonton baru saja bergabung ke siaran live kita: ${namesList}. (Sapa mereka dengan SANGAT HANGAT dan SINGKAT, cukup 1-2 kalimat menyambut mereka ke live stream!)`;
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn('Gemini WebSocket belum terhubung untuk menyapa.');
+      return false;
+    }
+
+    const clientContent = {
+      clientContent: {
+        turns: [
+          {
+            role: 'user',
+            parts: [{ text: promptText }],
+          },
+        ],
+        turnComplete: true,
+      },
+    };
+
     if (!this.isSetupComplete) {
       this._pendingMessages.push(clientContent);
       return true;

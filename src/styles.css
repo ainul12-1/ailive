@@ -952,3 +952,32 @@ body.obs-mode .live-speech-dock {
 body.obs-mode #avatar-viewport {
   background: transparent;
 }
+
+/* Quick Stage Greeting Pill */
+.stage-quick-bar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 15;
+}
+#btn-quick-greet {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #34d399;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: all var(--ease-snappy);
+  cursor: pointer;
+}
+#btn-quick-greet:active {
+  transform: scale(0.95);
+  background: rgba(16, 185, 129, 0.35);
+}
+body.obs-mode .stage-quick-bar {
+  display: none !important;
+}

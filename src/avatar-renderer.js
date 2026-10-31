@@ -76,12 +76,12 @@ export class AvatarRenderer {
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
-      powerPreference: 'high-performance',
+      powerPreference: 'default', // battery & heat friendly for mobile phones
     });
     this.renderer.setSize(width, height);
-    // Super enteng: cap DPR at 1.5 on mobile to guarantee smooth 60/120fps without overheating
-    const isMobile = width < 768;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+    // Super enteng anti-lag: cap DPR at 1.0 on mobile to drastically reduce GPU fragment fill-rate & overheating
+    const isMobile = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || width < 768);
+    this.renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // Neutral tone exposure prevents face wash-out / overexposure
@@ -132,7 +132,8 @@ export class AvatarRenderer {
   }
 
   setupFloatingParticles() {
-    const particleCount = 75;
+    const isMobile = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768);
+    const particleCount = isMobile ? 18 : 60;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount * 3; i += 3) {
@@ -143,7 +144,7 @@ export class AvatarRenderer {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.PointsMaterial({
       color: 0xf43f5e,
-      size: 0.020,
+      size: isMobile ? 0.016 : 0.020,
       transparent: true,
       opacity: 0.35,
       blending: THREE.AdditiveBlending,

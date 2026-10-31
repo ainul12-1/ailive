@@ -65,6 +65,13 @@
     <main class="studio-stage">
       <!-- 3D Avatar Viewport -->
       <section id="avatar-viewport">
+        <!-- Quick Stage Greeting Pill -->
+        <div class="stage-quick-bar" style="position: absolute; top: 14px; right: 14px; z-index: 15;">
+          <button id="btn-quick-greet" class="btn-control" style="background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; font-weight: 600; font-size: 11px; padding: 6px 12px; border-radius: 9999px; backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.25);" title="Sapa 3 Penonton Terbaru yang Masuk">
+            👋 Sapa 3 Baru
+          </button>
+        </div>
+
         <!-- Loading Indicator -->
         <div class="stage-loader" id="stage-loader">
           <div class="spinner-ring"></div>
@@ -124,10 +131,15 @@
         <div class="simulator-panel">
           <div class="sim-header">
             <span>Simulator Interaksi</span>
-            <button id="btn-quick-gift" class="btn-control" style="height: 26px; padding: 0 8px; font-size: 11px;">
-              <svg viewBox="0 0 24 24" style="width: 12px; height: 12px;"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/></svg>
-              Kirim Gift
-            </button>
+            <div style="display: flex; gap: 6px;">
+              <button id="btn-sim-greet" class="btn-control" style="height: 26px; padding: 0 8px; font-size: 11px; color: #10b981; border-color: rgba(16,185,129,0.3);" title="Sapa 3 Penonton Terbaru">
+                👋 Sapa 3 Baru
+              </button>
+              <button id="btn-quick-gift" class="btn-control" style="height: 26px; padding: 0 8px; font-size: 11px;">
+                <svg viewBox="0 0 24 24" style="width: 12px; height: 12px;"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/></svg>
+                Kirim Gift
+              </button>
+            </div>
           </div>
           <div class="sim-input-row">
             <input type="text" id="sim-user" class="input-studio" placeholder="Nama" value="Penonton" style="max-width: 90px;" />
