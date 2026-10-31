@@ -34,18 +34,18 @@
 
       <!-- Header Action Controls (Desktop & Tablet) -->
       <div class="header-actions">
-        <!-- Switch Avatar Button -->
-        <button id="btn-switch-avatar" class="btn-control" title="Beralih ke model Maya VRM (Animasi Hidup)">
-          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span class="btn-text" id="avatar-model-label">Model: Maya (VRM)</span>
+        <!-- Pose Reaksi / Terima Kasih Button -->
+        <button id="btn-trigger-reaction" class="btn-control" title="Picu Pose Reaksi Terima Kasih">
+          <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span class="btn-text">Pose Reaksi</span>
         </button>
 
-        <!-- Load 3D Model -->
-        <label for="model-file-input" class="btn-control" title="Load Model 3D (VRM / GLB)">
+        <!-- Load 3D VRM Model -->
+        <label for="model-file-input" class="btn-control" title="Unggah Avatar VRM Kustom (.vrm)">
           <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <span class="btn-text">Load Model 3D</span>
+          <span class="btn-text">Ganti Avatar (.vrm)</span>
         </label>
-        <input type="file" id="model-file-input" accept=".vrm,.glb,.gltf,.fbx" style="display: none;" />
+        <input type="file" id="model-file-input" accept=".vrm" style="display: none;" />
 
         <!-- OBS Mode Toggle -->
         <button id="btn-toggle-obs" class="btn-control" title="OBS Mode (Transparan)">
@@ -172,15 +172,20 @@
       </div>
 
       <div class="modal-content-area">
-        <!-- 3D Avatar Model Selection -->
+        <!-- Pilihan Tema Warna Baju Avatar -->
         <div class="field-group">
-          <label for="select-avatar-model">Pilihan Avatar 3D Utama</label>
-          <select id="select-avatar-model" class="input-studio">
-            <option value="vrm">✨ Maya Anime Host (VRM) - Full Animasi Tubuh, Tangan & Bibir</option>
-            <option value="wedding">🗿 Gadis Gaun Pengantin (GLB) - Patung Statis</option>
+          <label for="select-cloth-color">Tema Warna Pakaian Host</label>
+          <select id="select-cloth-color" class="input-studio">
+            <option value="#2563eb">🔷 Royal Sapphire Blue (Default Elegan)</option>
+            <option value="#e11d48">🌸 Sakura Rose Pink (Manis & Ceria)</option>
+            <option value="#0f172a">🖤 Midnight Velvet Black (Anggun & Kalem)</option>
+            <option value="#8b5cf6">💜 VisionOS Cyber Purple (Modern Glow)</option>
+            <option value="#10b981">💚 Emerald Forest Green (Segar Natural)</option>
+            <option value="#d97706">🧡 Sunset Golden Amber (Hangat Mewah)</option>
+            <option value="#f8fafc">🤍 Pearl Pure White (Bersih Cerah)</option>
           </select>
           <span style="font-size: 11px; color: var(--text-muted);">
-            Format <strong>.VRM</strong> memiliki 171 sendi tulang & 18 blendshape mulut. Model GLB patung tidak memiliki tulang sendi.
+            Warna pakaian Maya langsung berubah seketika dan tersimpan di memori perangkat.
           </span>
         </div>
 

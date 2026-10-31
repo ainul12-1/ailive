@@ -2,8 +2,7 @@ import { GeminiLiveClient } from './gemini-live.js';
 import { AvatarRenderer } from './avatar-renderer.js';
 import { TikTokLiveManager } from './tiktok-live.js';
 
-// Assets
-import weddingGirlUrl from './assets/WhiteWeddingDressGirl.glb?url';
+// Assets (Super Lightweight: Only VRM Humanoid)
 import sampleVrmUrl from './assets/sample.vrm?url';
 
 // DOM Elements
@@ -20,6 +19,7 @@ const loaderStatusEl = document.getElementById('loader-status');
 // Controls
 const modelFileInput = document.getElementById('model-file-input');
 const btnToggleObs = document.getElementById('btn-toggle-obs');
+const btnTriggerReaction = document.getElementById('btn-trigger-reaction');
 const btnOpenSettings = document.getElementById('btn-open-settings');
 const btnCloseSettings = document.getElementById('btn-close-settings');
 const btnCancelSettings = document.getElementById('btn-cancel-settings');
@@ -33,6 +33,7 @@ const btnMobileObs = document.getElementById('btn-mobile-obs');
 const btnMobileSettings = document.getElementById('btn-mobile-settings');
 
 // Settings Inputs
+const selectClothColor = document.getElementById('select-cloth-color');
 const inputApiKey = document.getElementById('input-api-key');
 const selectModel = document.getElementById('select-model');
 const selectVoice = document.getElementById('select-voice');
@@ -50,7 +51,6 @@ const btnSimSend = document.getElementById('btn-sim-send');
 const btnQuickGift = document.getElementById('btn-quick-gift');
 
 // --- 1. Load Stored Configuration ---
-// Clean up any invalid cached model from localStorage
 let savedModel = localStorage.getItem('gemini_model');
 if (!savedModel || savedModel.includes('2.0-flash-live-001') || savedModel.includes('2.5-flash-preview')) {
   savedModel = 'gemini-3.1-flash-live-preview';
@@ -68,9 +68,11 @@ const config = {
   tiktokWsUrl: localStorage.getItem('tiktok_ws_url') || 'ws://localhost:21213',
   filterMode: localStorage.getItem('tiktok_filter_mode') || 'all',
   cooldownSeconds: parseInt(localStorage.getItem('tiktok_cooldown') || '4', 10),
+  clothColor: localStorage.getItem('ailive_cloth_color') || '#2563eb',
 };
 
 // Populate inputs
+if (selectClothColor) selectClothColor.value = config.clothColor;
 inputApiKey.value = config.apiKey;
 selectModel.value = config.model;
 selectVoice.value = config.voice;
@@ -99,63 +101,37 @@ avatarRenderer.setLoadingCallback((isLoading, text) => {
   }
 });
 
-const btnSwitchAvatar = document.getElementById('btn-switch-avatar');
-const avatarModelLabel = document.getElementById('avatar-model-label');
-const selectAvatarModel = document.getElementById('select-avatar-model');
-
-let currentAvatarType = localStorage.getItem('ailive_selected_avatar_type') || 'vrm';
-
-function updateAvatarUI() {
-  if (avatarModelLabel) {
-    avatarModelLabel.textContent = currentAvatarType === 'vrm' ? 'Model: Maya (VRM)' : 'Model: Gaun (GLB)';
-  }
-  if (selectAvatarModel) {
-    selectAvatarModel.value = currentAvatarType;
+// Load default interactive VRM humanoid avatar
+async function loadDefaultAvatar() {
+  speechTextEl.textContent = 'Memuat Maya Anime Host (VRM)...';
+  try {
+    await avatarRenderer.loadModel(sampleVrmUrl, 'Maya Anime Host (VRM)');
+    if (config.clothColor) {
+      avatarRenderer.setClothColor(config.clothColor);
+    }
+    speechTextEl.textContent = '✨ Maya (VRM) aktif: Full animasi ekspresi, gestur tangan & bibir siap live!';
+  } catch (err) {
+    console.error('Gagal memuat VRM:', err);
+    speechTextEl.textContent = `⚠️ Gagal memuat VRM: ${err.message}`;
   }
 }
+loadDefaultAvatar();
 
-async function loadChosenAvatar(type = currentAvatarType) {
-  currentAvatarType = type;
-  localStorage.setItem('ailive_selected_avatar_type', type);
-  updateAvatarUI();
-
-  if (type === 'wedding') {
-    speechTextEl.textContent = 'Memuat Gadis Gaun Pengantin (GLB)...';
-    try {
-      await avatarRenderer.loadModel(weddingGirlUrl, 'Gadis Gaun Pengantin (GLB)');
-      speechTextEl.textContent = 'ℹ️ Mode GLB Aktif: Format ini patung statis tanpa tulang. Klik tombol Model di atas untuk beralih ke Maya VRM (Full Gerak)!';
-    } catch (e) {
-      console.warn('Gagal memuat GLB:', e);
-    }
-  } else {
-    speechTextEl.textContent = 'Memuat Maya Anime Host (VRM)...';
-    try {
-      await avatarRenderer.loadModel(sampleVrmUrl, 'Maya Anime Host (VRM)');
-      speechTextEl.textContent = '✨ Maya VRM siap: Animasi bibir, gestur tangan, mata & pernapasan aktif.';
-    } catch (err) {
-      console.warn('Gagal memuat VRM default, mencoba GLB fallback...', err);
-      try {
-        await avatarRenderer.loadModel(weddingGirlUrl, 'Avatar 3D');
-      } catch (e) {
-        console.error('Gagal memuat model:', e);
-      }
-    }
-  }
-}
-
-// Initial load: Default to VRM (Full Humanoid Animation)
-loadChosenAvatar(currentAvatarType);
-
-if (btnSwitchAvatar) {
-  btnSwitchAvatar.addEventListener('click', () => {
-    const nextType = currentAvatarType === 'vrm' ? 'wedding' : 'vrm';
-    loadChosenAvatar(nextType);
+// Live cloth recoloring from select
+if (selectClothColor) {
+  selectClothColor.addEventListener('change', () => {
+    config.clothColor = selectClothColor.value;
+    localStorage.setItem('ailive_cloth_color', config.clothColor);
+    avatarRenderer.setClothColor(config.clothColor);
   });
 }
 
-if (selectAvatarModel) {
-  selectAvatarModel.addEventListener('change', () => {
-    loadChosenAvatar(selectAvatarModel.value);
+// Spontaneous gratitude reaction button
+if (btnTriggerReaction) {
+  btnTriggerReaction.addEventListener('click', () => {
+    avatarRenderer.triggerReaction('thanks');
+    speechTextEl.textContent = '✨ Maya: "Terima kasih banyak untuk dukungannya, semuanya!"';
+    geminiClient.simulateSpeech(2.8);
   });
 }
 
@@ -181,17 +157,14 @@ let geminiClient = new GeminiLiveClient({
   onAudioStart: () => {
     speakerTitleEl.textContent = `Maya (${config.voice}) Berbicara`;
     speakerTitleEl.style.color = '#10b981';
-    // Notify TikTok manager that AI is speaking
     tiktokManager.setAiSpeakingState(true);
   },
   onAudioEnd: () => {
     speakerTitleEl.textContent = 'Maya Mendengarkan';
     speakerTitleEl.style.color = 'var(--accent-rose)';
-    // Notify TikTok manager that AI finished speaking
     tiktokManager.setAiSpeakingState(false);
   },
   onError: (errMsg) => {
-    // Use non-blocking notification instead of alert()
     console.error('Gemini Error:', errMsg);
     speechTextEl.textContent = `⚠️ ${errMsg}`;
   },
@@ -236,6 +209,8 @@ const tiktokManager = new TikTokLiveManager({
   onNewGift: (gift) => {
     appendGiftCard(gift);
     updateQueueBadge();
+    // Spontaneous emotional gratitude gesture for gifts
+    avatarRenderer.triggerReaction('thanks');
   },
   onTriggerAiReply: async (commentData) => {
     updateQueueBadge();
@@ -278,7 +253,6 @@ function appendChatCard(data) {
   chatFeedEl.appendChild(item);
   chatFeedEl.scrollTop = chatFeedEl.scrollHeight;
 
-  // Limit chat history to prevent DOM bloat
   while (chatFeedEl.children.length > 100) {
     chatFeedEl.removeChild(chatFeedEl.firstChild);
   }
@@ -308,7 +282,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// --- FIX: Resume AudioContext on first user gesture (mobile autoplay policy) ---
+// Resume AudioContext on first user gesture (mobile autoplay policy)
 function onFirstInteraction() {
   geminiClient.ensureAudioResumed();
   document.removeEventListener('click', onFirstInteraction);
@@ -317,8 +291,6 @@ function onFirstInteraction() {
 document.addEventListener('click', onFirstInteraction);
 document.addEventListener('touchstart', onFirstInteraction);
 
-// Auto connect if credentials exist (but don't auto-connect on load to avoid
-// autoplay issues - Gemini will connect on first interaction or save)
 if (config.apiKey) {
   geminiClient.connect();
 }
@@ -328,7 +300,7 @@ if (config.tiktokUsername || config.tiktokWsUrl) {
 
 // --- 5. Event Listeners ---
 
-// File loader (VRM, GLB, GLTF)
+// File loader (VRM Model)
 modelFileInput.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -338,7 +310,6 @@ modelFileInput.addEventListener('change', async (e) => {
   } catch (err) {
     speechTextEl.textContent = `⚠️ Gagal memuat model: ${err.message}`;
   }
-  // Reset file input so same file can be selected again
   modelFileInput.value = '';
 });
 
@@ -347,12 +318,7 @@ window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', async (e) => {
   e.preventDefault();
   const file = e.dataTransfer.files?.[0];
-  if (
-    file &&
-    (file.name.endsWith('.glb') ||
-      file.name.endsWith('.vrm') ||
-      file.name.endsWith('.gltf'))
-  ) {
+  if (file && (file.name.endsWith('.vrm') || file.name.endsWith('.glb') || file.name.endsWith('.gltf'))) {
     try {
       await avatarRenderer.loadModel(file, file.name);
       speechTextEl.textContent = `Model ${file.name} berhasil dimuat.`;
@@ -401,11 +367,10 @@ if (btnMobileChat) {
     }
   });
 }
-
-if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeMobileSheet);
 if (btnCloseSheet) btnCloseSheet.addEventListener('click', closeMobileSheet);
+if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeMobileSheet);
 
-// Settings Modal
+// Settings Modal Controls
 const openSettings = () => settingsModal.classList.add('active');
 const closeSettings = () => settingsModal.classList.remove('active');
 
@@ -414,7 +379,6 @@ if (btnMobileSettings) btnMobileSettings.addEventListener('click', openSettings)
 btnCloseSettings.addEventListener('click', closeSettings);
 btnCancelSettings.addEventListener('click', closeSettings);
 
-// Close modal on backdrop click
 settingsModal.addEventListener('click', (e) => {
   if (e.target === settingsModal) closeSettings();
 });
@@ -429,6 +393,11 @@ btnSaveSettings.addEventListener('click', () => {
   config.tiktokWsUrl = (inputTiktokWsUrl ? inputTiktokWsUrl.value.trim() : '') || 'ws://localhost:21213';
   config.filterMode = selectFilterMode.value;
   config.cooldownSeconds = parseInt(inputCooldown.value, 10);
+  if (selectClothColor) {
+    config.clothColor = selectClothColor.value;
+    localStorage.setItem('ailive_cloth_color', config.clothColor);
+    avatarRenderer.setClothColor(config.clothColor);
+  }
 
   localStorage.setItem('gemini_api_key', config.apiKey);
   localStorage.setItem('gemini_model', config.model);
@@ -438,11 +407,6 @@ btnSaveSettings.addEventListener('click', () => {
   localStorage.setItem('tiktok_ws_url', config.tiktokWsUrl);
   localStorage.setItem('tiktok_filter_mode', config.filterMode);
   localStorage.setItem('tiktok_cooldown', config.cooldownSeconds);
-
-  // Update Avatar Model if changed
-  if (selectAvatarModel && selectAvatarModel.value !== currentAvatarType) {
-    loadChosenAvatar(selectAvatarModel.value);
-  }
 
   // Update Gemini
   geminiClient.disconnect();
@@ -485,4 +449,5 @@ simText.addEventListener('keydown', (e) => {
 btnQuickGift.addEventListener('click', () => {
   const user = simUser.value.trim() || 'Sultan';
   tiktokManager.simulateGift(user, 'Mawar Merah', 1);
+  avatarRenderer.triggerReaction('thanks');
 });
