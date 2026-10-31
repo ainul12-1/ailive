@@ -278,7 +278,7 @@ if (config.apiKey) {
   geminiClient.connect();
 }
 if (config.tiktokUsername || config.tiktokWsUrl) {
-  tiktokManager.connect(config.tiktokWsUrl);
+  tiktokManager.connect(config.tiktokUsername || config.tiktokWsUrl);
 }
 
 // --- 5. Event Listeners ---
@@ -410,7 +410,7 @@ btnSaveSettings.addEventListener('click', () => {
   tiktokManager.filterMode = config.filterMode;
   tiktokManager.cooldownSeconds = config.cooldownSeconds;
   if (config.tiktokUsername || config.tiktokWsUrl) {
-    tiktokManager.connect(config.tiktokWsUrl);
+    tiktokManager.connect(config.tiktokUsername || config.tiktokWsUrl);
   }
 
   closeSettings();

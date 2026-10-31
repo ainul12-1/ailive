@@ -1,6 +1,6 @@
 [package]
 name = "ailive"
-version = "1.0.6"
+version = "1.0.7"
 description = "ailive - TikTok Live AI Avatar with Gemini Live API"
 authors = ["ainul12-1"]
 edition = "2021"
@@ -17,6 +17,10 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
+piratetok-live-rs = "0.5"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 
 [profile.release]
 codegen-units = 1

@@ -1,10 +1,9 @@
 /**
  * TikTok Live Stream Manager & Event Queue
- * Universal connector supporting:
- *  1. TikFinity Desktop WebSocket (v1 & v2 payloads)
- *  2. tiktok-live-connector Node.js Bridge (scripts/tiktok-bridge.js)
- *  3. Streamer.bot & Custom Webhook Bridges
- *  4. Direct local network connections (PC to Android HP)
+ * Dual-Mode Connector:
+ *  1. Native Rust Engine (inside Tauri .exe & .apk): Directly connects to TikTok Live
+ *     without needing TikFinity, Node.js, or external software!
+ *  2. Browser WebSocket Fallback (TikFinity / scripts/tiktok-bridge.js)
  */
 
 export class TikTokLiveManager {
@@ -28,6 +27,7 @@ export class TikTokLiveManager {
     // Track AI speaking state
     this._isAiSpeaking = false;
     this._aiFinishResolver = null;
+    this._hasTauriListeners = false;
 
     // Callbacks
     this.onStatusChange = options.onStatusChange || (() => {});
@@ -63,13 +63,59 @@ export class TikTokLiveManager {
   }
 
   /**
-   * Connect to TikTok Live WebSocket (TikFinity or Node.js Bridge)
+   * Universal Connect: Direct Native in Tauri (.exe/.apk) or WebSocket Fallback in Browser
    */
-  connect(url = null) {
-    if (url) {
-      this.setWsUrl(url);
+  async connect(target = null) {
+    if (target && !target.startsWith('ws://') && !target.startsWith('wss://')) {
+      this.setTargetUsername(target);
+    } else if (target) {
+      this.setWsUrl(target);
     }
 
+    const isTauri = typeof window !== 'undefined' && (!!window.__TAURI__ || !!window.__TAURI_INTERNALS__);
+
+    // 1. Native Direct Mode in Tauri (.exe / .apk)
+    if (isTauri && this.targetUsername) {
+      console.log(`🚀 [Tauri Native TikTok]: Menghubungkan langsung ke live @${this.targetUsername}...`);
+      this.onStatusChange('connecting', `Menghubungkan ke live @${this.targetUsername}...`);
+
+      try {
+        if (!this._hasTauriListeners) {
+          this._hasTauriListeners = true;
+          const eventApi = window.__TAURI__.event;
+
+          await eventApi.listen('tiktok-chat', (event) => {
+            this.handleIncomingEvent({ event: 'chat', data: event.payload });
+          });
+
+          await eventApi.listen('tiktok-gift', (event) => {
+            this.handleIncomingEvent({ event: 'gift', data: event.payload });
+          });
+
+          await eventApi.listen('tiktok-like', (event) => {
+            this.handleIncomingEvent({ event: 'like', data: event.payload });
+          });
+
+          await eventApi.listen('tiktok-status', (event) => {
+            const { status, message } = event.payload;
+            this.isConnected = status === 'connected';
+            this.onStatusChange(status, message);
+          });
+        }
+
+        const coreApi = window.__TAURI__.core;
+        await coreApi.invoke('start_tiktok_listener', { username: this.targetUsername });
+        return;
+      } catch (err) {
+        console.warn('Native listener invocation failed, falling back to WebSocket bridge:', err);
+      }
+    }
+
+    // 2. Browser WebSocket Bridge Fallback (TikFinity / scripts/tiktok-bridge.js)
+    this.connectWebSocket();
+  }
+
+  connectWebSocket() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -95,7 +141,7 @@ export class TikTokLiveManager {
 
     this.ws.onopen = () => {
       this.isConnected = true;
-      this.reconnectDelay = 3000; // Reset backoff
+      this.reconnectDelay = 3000;
       this.onStatusChange('connected', `TikTok Live Terhubung`);
       console.log(`✅ [TikTok WebSocket Terhubung]: ${targetUrl}`);
     };
@@ -108,15 +154,14 @@ export class TikTokLiveManager {
         }
         this.handleIncomingEvent(payload);
       } catch (err) {
-        console.error('Error parsing TikTok message payload:', err, event.data);
+        console.error('Error parsing TikTok payload:', err, event.data);
       }
     };
 
     this.ws.onerror = () => {
-      console.warn(`TikFinity / Bridge belum aktif di ${targetUrl}.`);
       this.onStatusChange(
         'idle',
-        `TikTok Offline (Buka TikFinity atau jalankan: npm run bridge)`
+        `TikTok Offline (Mencari TikFinity / Bridge di ${targetUrl})`
       );
     };
 
@@ -129,8 +174,7 @@ export class TikTokLiveManager {
 
   // Alias for backward compatibility
   connectTikFinity(port = 21213) {
-    const url = this.wsUrl.includes('://') ? this.wsUrl : `ws://localhost:${port}`;
-    this.connect(url);
+    this.connect();
   }
 
   scheduleReconnect() {
@@ -140,18 +184,16 @@ export class TikTokLiveManager {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (!this.isConnected && (this.targetUsername || this.wsUrl)) {
-        console.log(`🔄 [Auto-Reconnect TikTok]: Mencoba menyambung kembali ke ${this.wsUrl}...`);
         this.connect();
       }
     }, this.reconnectDelay);
 
-    // Exponential backoff up to 15s
     this.reconnectDelay = Math.min(15000, this.reconnectDelay * 1.5);
   }
 
   /**
    * UNIVERSAL EVENT PARSER
-   * Reliably extracts chat, gifts, likes from TikFinity, Bridge, or Streamer.bot
+   * Extracts chat, gifts, and likes from native Rust, TikFinity, Bridge, or Streamer.bot
    */
   handleIncomingEvent(raw) {
     if (!raw) return;
@@ -159,12 +201,7 @@ export class TikTokLiveManager {
     const eventType = String(raw.event || raw.type || '').toLowerCase();
     const data = raw.data || raw;
 
-    // -------------------------------------------------------------
     // 1. CHAT / COMMENT EVENT
-    // -------------------------------------------------------------
-    // TikFinity format: raw.event === 'chat', data = { user: { uniqueId, nickname }, comment }
-    // Node bridge format: raw.event === 'chat', data = { uniqueId, nickname, comment }
-    // Streamer.bot format: data.comment, data.username
     const isChat =
       eventType === 'chat' ||
       eventType === 'comment' ||
@@ -197,7 +234,7 @@ export class TikTokLiveManager {
         '';
 
       if (!comment || !String(comment).trim()) {
-        return; // Skip empty comment packets
+        return;
       }
 
       const commentData = {
@@ -214,9 +251,7 @@ export class TikTokLiveManager {
       return;
     }
 
-    // -------------------------------------------------------------
     // 2. GIFT EVENT
-    // -------------------------------------------------------------
     const isGift =
       eventType === 'gift' ||
       data.giftName !== undefined ||
@@ -259,7 +294,6 @@ export class TikTokLiveManager {
       console.log(`🎁 [TikTok Gift]: @${giftData.nickname} mengirim ${giftData.giftName} x${giftData.repeatCount}`);
       this.onNewGift(giftData);
 
-      // High priority response to gift sender
       this.enqueueComment(
         {
           uniqueId: giftData.nickname,
@@ -272,9 +306,7 @@ export class TikTokLiveManager {
       return;
     }
 
-    // -------------------------------------------------------------
     // 3. LIKE EVENT
-    // -------------------------------------------------------------
     const isLike =
       eventType === 'like' ||
       data.likeCount !== undefined ||
@@ -292,13 +324,9 @@ export class TikTokLiveManager {
     }
   }
 
-  /**
-   * Filter and add comment to speech queue
-   */
   enqueueComment(commentData, highPriority = false) {
     if (!commentData || !commentData.comment) return;
 
-    // Apply filters
     if (!highPriority) {
       if (
         this.filterMode === 'questions' &&
@@ -326,7 +354,6 @@ export class TikTokLiveManager {
   async processQueue() {
     if (this.isProcessingQueue || this.commentQueue.length === 0) return;
 
-    // Respect user cooldown
     const now = Date.now();
     const elapsed = (now - this.lastReplyTime) / 1000;
     if (elapsed < this.cooldownSeconds) {
@@ -336,8 +363,6 @@ export class TikTokLiveManager {
     }
 
     this.isProcessingQueue = true;
-
-    // Wait until current speech audio finishes
     await this._waitForAiFinish();
 
     if (this.commentQueue.length === 0) {
@@ -388,12 +413,20 @@ export class TikTokLiveManager {
     });
   }
 
-  disconnect() {
+  async disconnect() {
     this.shouldAutoReconnect = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+
+    const isTauri = typeof window !== 'undefined' && (!!window.__TAURI__ || !!window.__TAURI_INTERNALS__);
+    if (isTauri) {
+      try {
+        await window.__TAURI__.core.invoke('stop_tiktok_listener');
+      } catch (_) {}
+    }
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
