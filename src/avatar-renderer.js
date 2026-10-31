@@ -194,11 +194,71 @@ export class AvatarRenderer {
   }
 
   /**
-   * Trigger emotional reaction (gift received, cheerful greeting, thanks)
+   * Set VRM facial expression safely across VRM 0.0 (Joy/Fun) & VRM 1.0 (happy/relaxed)
    */
-  triggerReaction(type = 'thanks') {
+  setExpressionSafe(name, weight) {
+    if (!this.currentVrm?.expressionManager) return;
+    const em = this.currentVrm.expressionManager;
+    const candidates = [
+      name,
+      name.toLowerCase(),
+      name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
+      name === 'happy' ? 'Joy' : name === 'Joy' ? 'happy' : null,
+      name === 'relaxed' ? 'Fun' : name === 'Fun' ? 'relaxed' : null,
+    ].filter(Boolean);
+
+    for (const c of candidates) {
+      try {
+        em.setValue(c, weight);
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Helper to curl finger joints naturally into a fist or pose
+   */
+  _curlFingers(handPrefix = 'right', mask = [true, true, true, true, true], weight = 1.0) {
+    const b = this.vrmBones;
+    if (!b) return;
+    const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
+    fingers.forEach((finger, i) => {
+      if (!mask[i]) return;
+      const p = b[`${handPrefix}${finger}Proximal`];
+      const inter = b[`${handPrefix}${finger}Intermediate`];
+      const d = b[`${handPrefix}${finger}Distal`];
+      const curlZ = (finger === 'Thumb' ? 0.65 : 1.15) * weight;
+      const curlX = (finger === 'Thumb' ? 0.35 : 0.0) * weight;
+      if (p) { p.rotation.z = curlZ * 0.85; p.rotation.x = curlX; }
+      if (inter) { inter.rotation.z = curlZ * 1.0; }
+      if (d) { d.rotation.z = curlZ * 0.85; }
+    });
+  }
+
+  /**
+   * Helper to straighten finger joints outward
+   */
+  _straightenFingers(handPrefix = 'right', fingers = ['Index', 'Middle']) {
+    const b = this.vrmBones;
+    if (!b) return;
+    fingers.forEach((finger) => {
+      const p = b[`${handPrefix}${finger}Proximal`];
+      const inter = b[`${handPrefix}${finger}Intermediate`];
+      const d = b[`${handPrefix}${finger}Distal`];
+      if (p) { p.rotation.z = 0; p.rotation.x = 0; p.rotation.y = 0; }
+      if (inter) { inter.rotation.z = 0; inter.rotation.x = 0; inter.rotation.y = 0; }
+      if (d) { d.rotation.z = 0; d.rotation.x = 0; d.rotation.y = 0; }
+    });
+  }
+
+  /**
+   * Trigger modular emotional reaction or hand pose
+   * Supported types: 'love', 'wave', 'peace', 'middle_finger', 'dance', 'thanks'
+   */
+  triggerReaction(type = 'thanks', duration = 3.5) {
     this.activeReaction = type;
     this.reactionProgress = 0;
+    this.reactionDuration = duration;
+    console.log(`🎭 [Avatar Pose]: Menjalankan pose "${type}" (${duration}s)`);
   }
 
   /**
@@ -328,6 +388,40 @@ export class AvatarRenderer {
       rightLowerArm: h.getNormalizedBoneNode('rightLowerArm'),
       leftHand: h.getNormalizedBoneNode('leftHand'),
       rightHand: h.getNormalizedBoneNode('rightHand'),
+
+      // Right Hand Fingers (for finger hearts, middle finger, peace sign)
+      rightThumbProximal: h.getNormalizedBoneNode('rightThumbProximal'),
+      rightThumbIntermediate: h.getNormalizedBoneNode('rightThumbIntermediate'),
+      rightThumbDistal: h.getNormalizedBoneNode('rightThumbDistal'),
+      rightIndexProximal: h.getNormalizedBoneNode('rightIndexProximal'),
+      rightIndexIntermediate: h.getNormalizedBoneNode('rightIndexIntermediate'),
+      rightIndexDistal: h.getNormalizedBoneNode('rightIndexDistal'),
+      rightMiddleProximal: h.getNormalizedBoneNode('rightMiddleProximal'),
+      rightMiddleIntermediate: h.getNormalizedBoneNode('rightMiddleIntermediate'),
+      rightMiddleDistal: h.getNormalizedBoneNode('rightMiddleDistal'),
+      rightRingProximal: h.getNormalizedBoneNode('rightRingProximal'),
+      rightRingIntermediate: h.getNormalizedBoneNode('rightRingIntermediate'),
+      rightRingDistal: h.getNormalizedBoneNode('rightRingDistal'),
+      rightLittleProximal: h.getNormalizedBoneNode('rightLittleProximal'),
+      rightLittleIntermediate: h.getNormalizedBoneNode('rightLittleIntermediate'),
+      rightLittleDistal: h.getNormalizedBoneNode('rightLittleDistal'),
+
+      // Left Hand Fingers
+      leftThumbProximal: h.getNormalizedBoneNode('leftThumbProximal'),
+      leftThumbIntermediate: h.getNormalizedBoneNode('leftThumbIntermediate'),
+      leftThumbDistal: h.getNormalizedBoneNode('leftThumbDistal'),
+      leftIndexProximal: h.getNormalizedBoneNode('leftIndexProximal'),
+      leftIndexIntermediate: h.getNormalizedBoneNode('leftIndexIntermediate'),
+      leftIndexDistal: h.getNormalizedBoneNode('leftIndexDistal'),
+      leftMiddleProximal: h.getNormalizedBoneNode('leftMiddleProximal'),
+      leftMiddleIntermediate: h.getNormalizedBoneNode('leftMiddleIntermediate'),
+      leftMiddleDistal: h.getNormalizedBoneNode('leftMiddleDistal'),
+      leftRingProximal: h.getNormalizedBoneNode('leftRingProximal'),
+      leftRingIntermediate: h.getNormalizedBoneNode('leftRingIntermediate'),
+      leftRingDistal: h.getNormalizedBoneNode('leftRingDistal'),
+      leftLittleProximal: h.getNormalizedBoneNode('leftLittleProximal'),
+      leftLittleIntermediate: h.getNormalizedBoneNode('leftLittleIntermediate'),
+      leftLittleDistal: h.getNormalizedBoneNode('leftLittleDistal'),
     };
   }
 
@@ -484,34 +578,148 @@ export class AvatarRenderer {
       }
 
       if (isReacting) {
-        // --- REACTION POSE: Hand-to-Heart Gratitude / Appreciative Host Pose ---
-        // Right hand moves to heart / chest, head bows slightly in gratitude
-        if (b.rightUpperArm) {
-          b.rightUpperArm.rotation.z = baseArmDown - 0.45 * rWeight;
-          b.rightUpperArm.rotation.x = baseArmForward + 0.45 * rWeight;
-          b.rightUpperArm.rotation.y = -0.35 * rWeight;
-        }
-        if (b.rightLowerArm) {
-          b.rightLowerArm.rotation.y = baseElbowBend + 0.95 * rWeight;
-          b.rightLowerArm.rotation.z = 0.35 * rWeight;
-        }
-        if (b.rightHand) {
-          b.rightHand.rotation.x = 0.35 * rWeight;
-          b.rightHand.rotation.y = 0.25 * rWeight;
-        }
+        const pose = this.activeReaction;
 
-        // Left arm warm supporting pose
-        if (b.leftUpperArm) {
-          b.leftUpperArm.rotation.z = -baseArmDown + 0.25 * rWeight;
-          b.leftUpperArm.rotation.x = baseArmForward + 0.20 * rWeight;
-        }
-        if (b.leftLowerArm) {
-          b.leftLowerArm.rotation.y = -baseElbowBend - 0.35 * rWeight;
-        }
+        if (pose === 'love') {
+          // --- 1. POSE LOVE (Finger Heart / Saranghae) ---
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.z = baseArmDown - 0.85 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 0.70 * rWeight;
+            b.rightUpperArm.rotation.y = -0.30 * rWeight;
+          }
+          if (b.rightLowerArm) {
+            b.rightLowerArm.rotation.y = baseElbowBend + 1.25 * rWeight;
+            b.rightLowerArm.rotation.z = 0.45 * rWeight;
+          }
+          if (b.rightHand) {
+            b.rightHand.rotation.x = 0.20 * rWeight;
+            b.rightHand.rotation.y = 0.55 * rWeight;
+            b.rightHand.rotation.z = -0.15 * rWeight;
+          }
+          this._curlFingers('right', [false, false, true, true, true], rWeight);
+          if (b.rightThumbProximal) b.rightThumbProximal.rotation.z = 0.40 * rWeight;
+          if (b.rightIndexProximal) b.rightIndexProximal.rotation.z = 0.55 * rWeight;
 
-        // Appreciative bow
-        if (b.head) {
-          b.head.rotation.x += 0.12 * rWeight;
+          if (b.head) {
+            b.head.rotation.z = 0.16 * rWeight;
+            b.head.rotation.y = -0.08 * rWeight;
+          }
+          this.setExpressionSafe('happy', 0.85 * rWeight);
+        } else if (pose === 'middle_finger') {
+          // --- 2. POSE JARI TENGAH (Middle Finger) ---
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.z = baseArmDown - 0.85 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 0.85 * rWeight;
+            b.rightUpperArm.rotation.y = -0.20 * rWeight;
+          }
+          if (b.rightLowerArm) {
+            b.rightLowerArm.rotation.y = baseElbowBend + 0.85 * rWeight;
+            b.rightLowerArm.rotation.x = 0.25 * rWeight;
+          }
+          if (b.rightHand) {
+            b.rightHand.rotation.x = 0.40 * rWeight;
+            b.rightHand.rotation.y = 0.10 * rWeight;
+            b.rightHand.rotation.z = 0.20 * rWeight;
+          }
+          this._curlFingers('right', [true, true, false, true, true], rWeight * 1.2);
+          this._straightenFingers('right', ['Middle']);
+
+          if (b.head) {
+            b.head.rotation.x = -0.10 * rWeight;
+            b.head.rotation.y = 0.12 * rWeight;
+          }
+          this.setExpressionSafe('surprised', 0.60 * rWeight);
+        } else if (pose === 'peace') {
+          // --- 3. POSE PEACE / V-SIGN ---
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.z = baseArmDown - 0.70 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 0.65 * rWeight;
+          }
+          if (b.rightLowerArm) {
+            b.rightLowerArm.rotation.y = baseElbowBend + 1.20 * rWeight;
+          }
+          if (b.rightHand) {
+            b.rightHand.rotation.y = 0.45 * rWeight;
+            b.rightHand.rotation.z = -0.30 * rWeight;
+          }
+          this._curlFingers('right', [true, false, false, true, true], rWeight);
+          this._straightenFingers('right', ['Index', 'Middle']);
+          if (b.rightIndexProximal) b.rightIndexProximal.rotation.y = 0.22 * rWeight;
+          if (b.rightMiddleProximal) b.rightMiddleProximal.rotation.y = -0.22 * rWeight;
+
+          if (b.head) b.head.rotation.z = -0.15 * rWeight;
+          this.setExpressionSafe('happy', 0.85 * rWeight);
+        } else if (pose === 'wave') {
+          // --- 4. POSE WAVE (Melambaikan Tangan Menyapa) ---
+          const waveSwing = Math.sin(this.reactionProgress * Math.PI * 7) * 0.45 * rWeight;
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.z = 1.45 * rWeight;
+            b.rightUpperArm.rotation.x = 0.45 * rWeight;
+          }
+          if (b.rightLowerArm) {
+            b.rightLowerArm.rotation.y = 0.95 * rWeight;
+            b.rightLowerArm.rotation.z = waveSwing * 0.5;
+          }
+          if (b.rightHand) {
+            b.rightHand.rotation.z = waveSwing;
+          }
+          this._straightenFingers('right', ['Thumb', 'Index', 'Middle', 'Ring', 'Little']);
+
+          if (b.head) {
+            b.head.rotation.z = 0.12 * rWeight;
+            b.head.rotation.y = -0.10 * rWeight;
+          }
+          this.setExpressionSafe('happy', 0.80 * rWeight);
+        } else if (pose === 'dance') {
+          // --- 5. POSE DANCE (Joget Santai & Asik) ---
+          const danceCycle = Math.sin(this.reactionProgress * Math.PI * 5);
+          const danceCos = Math.cos(this.reactionProgress * Math.PI * 5);
+          if (b.hips) {
+            b.hips.position.x = danceCycle * 0.08 * rWeight;
+            b.hips.rotation.z = danceCycle * 0.08 * rWeight;
+          }
+          if (b.chest) {
+            b.chest.rotation.z = -danceCycle * 0.06 * rWeight;
+          }
+          if (b.head) {
+            b.head.rotation.y = danceCos * 0.15 * rWeight;
+            b.head.rotation.z = danceCycle * 0.08 * rWeight;
+          }
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.x = (0.45 + danceCycle * 0.35) * rWeight;
+            b.rightUpperArm.rotation.z = 0.65 * rWeight;
+          }
+          if (b.leftUpperArm) {
+            b.leftUpperArm.rotation.x = (0.45 - danceCycle * 0.35) * rWeight;
+            b.leftUpperArm.rotation.z = -0.65 * rWeight;
+          }
+          this.setExpressionSafe('happy', 0.70 * rWeight);
+        } else {
+          // --- 6. POSE THANKS (Terima Kasih / Sungkem / Gift Appreciation) ---
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.z = baseArmDown - 0.45 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 0.45 * rWeight;
+            b.rightUpperArm.rotation.y = -0.35 * rWeight;
+          }
+          if (b.rightLowerArm) {
+            b.rightLowerArm.rotation.y = baseElbowBend + 0.95 * rWeight;
+            b.rightLowerArm.rotation.z = 0.35 * rWeight;
+          }
+          if (b.rightHand) {
+            b.rightHand.rotation.x = 0.35 * rWeight;
+            b.rightHand.rotation.y = 0.25 * rWeight;
+          }
+          if (b.leftUpperArm) {
+            b.leftUpperArm.rotation.z = -baseArmDown + 0.25 * rWeight;
+            b.leftUpperArm.rotation.x = baseArmForward + 0.20 * rWeight;
+          }
+          if (b.leftLowerArm) {
+            b.leftLowerArm.rotation.y = -baseElbowBend - 0.35 * rWeight;
+          }
+          if (b.head) {
+            b.head.rotation.x += 0.12 * rWeight;
+          }
+          this.setExpressionSafe('happy', 0.75 * rWeight);
         }
       } else {
         // --- NORMAL MULTI-STYLE CONVERSATIONAL GESTURES ---

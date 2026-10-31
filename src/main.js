@@ -221,8 +221,18 @@ const tiktokManager = new TikTokLiveManager({
   onNewGift: (gift) => {
     appendGiftCard(gift);
     updateQueueBadge();
-    // Spontaneous emotional gratitude gesture for gifts
-    avatarRenderer.triggerReaction('thanks');
+    // Spontaneous emotional gratitude gesture for gifts (Love / Thanks / Peace)
+    const giftReactions = ['love', 'thanks', 'peace'];
+    const chosen = giftReactions[Math.floor(Math.random() * giftReactions.length)];
+    avatarRenderer.triggerReaction(chosen, 3.5);
+  },
+  onNewLike: (like) => {
+    // Spontaneous cute reaction for tap-tap screen likes
+    if (Math.random() < 0.35) {
+      const likeReactions = ['love', 'peace', 'wave'];
+      const chosen = likeReactions[Math.floor(Math.random() * likeReactions.length)];
+      avatarRenderer.triggerReaction(chosen, 2.5);
+    }
   },
   onNewJoiner: (joiner) => {
     if (!recentJoiners.some((j) => j.nickname === joiner.nickname || j.uniqueId === joiner.uniqueId)) {
@@ -505,6 +515,16 @@ const btnQuickGreet = document.getElementById('btn-quick-greet');
 const btnSimGreet = document.getElementById('btn-sim-greet');
 if (btnQuickGreet) btnQuickGreet.addEventListener('click', triggerGreetRecentJoiners);
 if (btnSimGreet) btnSimGreet.addEventListener('click', triggerGreetRecentJoiners);
+
+// Modular Hand Poses & Expressions (❤️ Love, 🖕 Jari Tengah, ✌️ Peace, 👋 Wave, 💃 Joget, 🙏 Makasih)
+document.querySelectorAll('.stage-pose-pill, .pose-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const pose = btn.getAttribute('data-pose');
+    if (!pose) return;
+    avatarRenderer.triggerReaction(pose, 3.5);
+    speechTextEl.textContent = `[Pose Avatar]: Menjalankan pose "${pose}"...`;
+  });
+});
 
 // Simulator Chat Send
 btnSimSend.addEventListener('click', () => {

@@ -65,11 +65,19 @@
     <main class="studio-stage">
       <!-- 3D Avatar Viewport -->
       <section id="avatar-viewport">
-        <!-- Quick Stage Greeting Pill -->
-        <div class="stage-quick-bar" style="position: absolute; top: 14px; right: 14px; z-index: 15;">
-          <button id="btn-quick-greet" class="btn-control" style="background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; font-weight: 600; font-size: 11px; padding: 6px 12px; border-radius: 9999px; backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.25);" title="Sapa 3 Penonton Terbaru yang Masuk">
+        <!-- Quick Stage Action & Pose Bar -->
+        <div class="stage-quick-bar" id="stage-quick-bar">
+          <button id="btn-quick-greet" class="stage-action-pill" title="Sapa 3 Penonton Terbaru yang Masuk">
             👋 Sapa 3 Baru
           </button>
+          <div class="stage-pose-pills">
+            <button class="stage-pose-pill" data-pose="love" title="Pose Finger Heart">❤️ Love</button>
+            <button class="stage-pose-pill" data-pose="middle_finger" title="Pose Jari Tengah">🖕 Jari</button>
+            <button class="stage-pose-pill" data-pose="peace" title="Pose Peace">✌️ Peace</button>
+            <button class="stage-pose-pill" data-pose="wave" title="Pose Melambai">👋 Wave</button>
+            <button class="stage-pose-pill" data-pose="dance" title="Pose Joget">💃 Joget</button>
+            <button class="stage-pose-pill" data-pose="thanks" title="Pose Terima Kasih">🙏 Makasih</button>
+          </div>
         </div>
 
         <!-- Loading Indicator -->
@@ -140,6 +148,15 @@
                 Kirim Gift
               </button>
             </div>
+          </div>
+          <!-- Modular Pose Trigger Row -->
+          <div class="sim-pose-row" style="display: flex; gap: 6px; overflow-x: auto; padding: 4px 0;">
+            <button class="pose-btn" data-pose="love" title="Finger Heart">❤️ Love</button>
+            <button class="pose-btn" data-pose="middle_finger" title="Jari Tengah">🖕 Jari</button>
+            <button class="pose-btn" data-pose="peace" title="Peace V-Sign">✌️ Peace</button>
+            <button class="pose-btn" data-pose="wave" title="Melambai">👋 Wave</button>
+            <button class="pose-btn" data-pose="dance" title="Joget">💃 Joget</button>
+            <button class="pose-btn" data-pose="thanks" title="Terima Kasih">🙏 Makasih</button>
           </div>
           <div class="sim-input-row">
             <input type="text" id="sim-user" class="input-studio" placeholder="Nama" value="Penonton" style="max-width: 90px;" />
