@@ -99,20 +99,65 @@ avatarRenderer.setLoadingCallback((isLoading, text) => {
   }
 });
 
-// Auto-load user's default 3D avatar on startup (WhiteWeddingDressGirl)
-async function loadDefaultAvatar() {
-  try {
-    await avatarRenderer.loadModel(weddingGirlUrl, 'Avatar 3D');
-  } catch (err) {
-    console.warn('Gagal memuat GLB default, mencoba VRM fallback...', err);
+const btnSwitchAvatar = document.getElementById('btn-switch-avatar');
+const avatarModelLabel = document.getElementById('avatar-model-label');
+const selectAvatarModel = document.getElementById('select-avatar-model');
+
+let currentAvatarType = localStorage.getItem('ailive_selected_avatar_type') || 'vrm';
+
+function updateAvatarUI() {
+  if (avatarModelLabel) {
+    avatarModelLabel.textContent = currentAvatarType === 'vrm' ? 'Model: Maya (VRM)' : 'Model: Gaun (GLB)';
+  }
+  if (selectAvatarModel) {
+    selectAvatarModel.value = currentAvatarType;
+  }
+}
+
+async function loadChosenAvatar(type = currentAvatarType) {
+  currentAvatarType = type;
+  localStorage.setItem('ailive_selected_avatar_type', type);
+  updateAvatarUI();
+
+  if (type === 'wedding') {
+    speechTextEl.textContent = 'Memuat Gadis Gaun Pengantin (GLB)...';
     try {
-      await avatarRenderer.loadModel(sampleVrmUrl, 'Sample VRM');
+      await avatarRenderer.loadModel(weddingGirlUrl, 'Gadis Gaun Pengantin (GLB)');
+      speechTextEl.textContent = 'ℹ️ Mode GLB Aktif: Format ini patung statis tanpa tulang. Klik tombol Model di atas untuk beralih ke Maya VRM (Full Gerak)!';
     } catch (e) {
-      console.error('Gagal memuat model:', e);
+      console.warn('Gagal memuat GLB:', e);
+    }
+  } else {
+    speechTextEl.textContent = 'Memuat Maya Anime Host (VRM)...';
+    try {
+      await avatarRenderer.loadModel(sampleVrmUrl, 'Maya Anime Host (VRM)');
+      speechTextEl.textContent = '✨ Maya VRM siap: Animasi bibir, gestur tangan, mata & pernapasan aktif.';
+    } catch (err) {
+      console.warn('Gagal memuat VRM default, mencoba GLB fallback...', err);
+      try {
+        await avatarRenderer.loadModel(weddingGirlUrl, 'Avatar 3D');
+      } catch (e) {
+        console.error('Gagal memuat model:', e);
+      }
     }
   }
 }
-loadDefaultAvatar();
+
+// Initial load: Default to VRM (Full Humanoid Animation)
+loadChosenAvatar(currentAvatarType);
+
+if (btnSwitchAvatar) {
+  btnSwitchAvatar.addEventListener('click', () => {
+    const nextType = currentAvatarType === 'vrm' ? 'wedding' : 'vrm';
+    loadChosenAvatar(nextType);
+  });
+}
+
+if (selectAvatarModel) {
+  selectAvatarModel.addEventListener('change', () => {
+    loadChosenAvatar(selectAvatarModel.value);
+  });
+}
 
 // --- 3. Initialize Gemini Live Client ---
 let geminiClient = new GeminiLiveClient({
@@ -393,6 +438,11 @@ btnSaveSettings.addEventListener('click', () => {
   localStorage.setItem('tiktok_ws_url', config.tiktokWsUrl);
   localStorage.setItem('tiktok_filter_mode', config.filterMode);
   localStorage.setItem('tiktok_cooldown', config.cooldownSeconds);
+
+  // Update Avatar Model if changed
+  if (selectAvatarModel && selectAvatarModel.value !== currentAvatarType) {
+    loadChosenAvatar(selectAvatarModel.value);
+  }
 
   // Update Gemini
   geminiClient.disconnect();

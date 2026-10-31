@@ -403,8 +403,8 @@ export class AvatarRenderer {
 
       if (b.head) {
         // Conversational head nods and tilts when talking
-        const talkNod = this.isTalking ? Math.sin(this.talkGesturePhase * 1.8) * 0.06 * vol : 0;
-        const talkTilt = this.isTalking ? Math.cos(this.talkGesturePhase * 0.9) * 0.04 * vol : 0;
+        const talkNod = this.isTalking ? Math.sin(this.talkGesturePhase * 1.8) * 0.12 * vol : 0;
+        const talkTilt = this.isTalking ? Math.cos(this.talkGesturePhase * 1.1) * 0.08 * vol : 0;
 
         b.head.rotation.y = this.currentMouse.x * 0.22 + Math.sin(elapsedTime * 0.6) * 0.025 + this.saccadeCurrent.x * 1.5;
         b.head.rotation.x = -this.currentMouse.y * 0.15 + talkNod + breathSine * 0.01;
@@ -428,12 +428,12 @@ export class AvatarRenderer {
 
       // Talking gesture dynamics (expressive hand motions while speaking)
       const gPhase = this.talkGesturePhase;
-      const rightGestureX = this.isTalking ? Math.sin(gPhase * 1.1) * 0.18 * vol : 0;
-      const rightGestureY = this.isTalking ? Math.cos(gPhase * 0.8) * 0.14 * vol : 0;
-      const rightGestureZ = this.isTalking ? Math.sin(gPhase * 1.4) * 0.12 * vol : 0;
+      const rightGestureX = this.isTalking ? Math.sin(gPhase * 1.1) * 0.25 * vol : 0;
+      const rightGestureY = this.isTalking ? Math.cos(gPhase * 0.8) * 0.18 * vol : 0;
+      const rightGestureZ = this.isTalking ? Math.sin(gPhase * 1.4) * 0.16 * vol : 0;
 
-      const leftGestureX = this.isTalking ? Math.cos(gPhase * 0.9 + 1.2) * 0.12 * vol : 0;
-      const leftGestureZ = this.isTalking ? Math.sin(gPhase * 0.7 + 0.5) * 0.08 * vol : 0;
+      const leftGestureX = this.isTalking ? Math.cos(gPhase * 0.9 + 1.2) * 0.15 * vol : 0;
+      const leftGestureZ = this.isTalking ? Math.sin(gPhase * 0.7 + 0.5) * 0.10 * vol : 0;
 
       // Left Arm (Relaxed supportive arm)
       if (b.leftUpperArm) {
@@ -452,20 +452,20 @@ export class AvatarRenderer {
 
       // Right Arm (Dominant conversational gesturing arm)
       if (b.rightUpperArm) {
-        b.rightUpperArm.rotation.z = baseArmDown - breathSine * 0.015 - (this.isTalking ? 0.15 * vol : 0) - rightGestureZ;
-        b.rightUpperArm.rotation.x = baseArmForward + (this.isTalking ? 0.25 * vol : 0) + rightGestureX;
+        b.rightUpperArm.rotation.z = baseArmDown - breathSine * 0.015 - (this.isTalking ? 0.28 * vol : 0) - rightGestureZ;
+        b.rightUpperArm.rotation.x = baseArmForward + (this.isTalking ? 0.35 * vol : 0) + rightGestureX;
         b.rightUpperArm.rotation.y = -0.18 + rightGestureY;
       }
       if (b.rightLowerArm) {
         // Forearm lifts and gestures to emphasize points when speaking
-        const speakElbowLift = this.isTalking ? (0.35 + Math.sin(gPhase * 1.3) * 0.2) * vol : 0;
+        const speakElbowLift = this.isTalking ? (0.55 + Math.sin(gPhase * 1.3) * 0.25) * vol : 0;
         b.rightLowerArm.rotation.y = baseElbowBend + speakElbowLift;
-        b.rightLowerArm.rotation.z = 0.18 + (this.isTalking ? Math.cos(gPhase) * 0.1 * vol : 0);
+        b.rightLowerArm.rotation.z = 0.18 + (this.isTalking ? Math.cos(gPhase) * 0.15 * vol : 0);
       }
       if (b.rightHand) {
         // Natural wrist movement following gestures
-        b.rightHand.rotation.x = 0.15 + (this.isTalking ? Math.sin(gPhase * 1.8) * 0.15 * vol : 0);
-        b.rightHand.rotation.y = (this.isTalking ? Math.cos(gPhase * 1.2) * 0.12 * vol : 0);
+        b.rightHand.rotation.x = 0.20 + (this.isTalking ? Math.sin(gPhase * 2.0) * 0.25 * vol : 0);
+        b.rightHand.rotation.y = (this.isTalking ? Math.cos(gPhase * 1.5) * 0.20 * vol : 0);
         b.rightHand.rotation.z = -0.1;
       }
 
@@ -493,11 +493,11 @@ export class AvatarRenderer {
         if (this.isTalking) {
           // Conversational multi-vowel articulation cycling with audio cadence
           const vowelCycle = elapsedTime * 14.0;
-          const openA = Math.max(0, Math.sin(vowelCycle)) * vol * 1.6;
-          const openO = Math.max(0, Math.sin(vowelCycle + 1.2)) * vol * 1.2;
-          const openI = Math.max(0, Math.cos(vowelCycle * 0.8)) * vol * 0.9;
-          const openU = Math.max(0, Math.sin(vowelCycle * 1.5 + 2.0)) * vol * 0.8;
-          const openE = Math.max(0, Math.cos(vowelCycle * 1.2)) * vol * 0.7;
+          const openA = Math.max(0, Math.sin(vowelCycle)) * vol * 2.2;
+          const openO = Math.max(0, Math.sin(vowelCycle + 1.2)) * vol * 1.8;
+          const openI = Math.max(0, Math.cos(vowelCycle * 0.8)) * vol * 1.3;
+          const openU = Math.max(0, Math.sin(vowelCycle * 1.5 + 2.0)) * vol * 1.1;
+          const openE = Math.max(0, Math.cos(vowelCycle * 1.2)) * vol * 1.1;
 
           exp.setValue('aa', Math.min(1.0, openA));
           exp.setValue('oh', Math.min(1.0, openO));

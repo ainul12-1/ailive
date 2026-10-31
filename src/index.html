@@ -34,6 +34,12 @@
 
       <!-- Header Action Controls (Desktop & Tablet) -->
       <div class="header-actions">
+        <!-- Switch Avatar Button -->
+        <button id="btn-switch-avatar" class="btn-control" title="Beralih ke model Maya VRM (Animasi Hidup)">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="btn-text" id="avatar-model-label">Model: Maya (VRM)</span>
+        </button>
+
         <!-- Load 3D Model -->
         <label for="model-file-input" class="btn-control" title="Load Model 3D (VRM / GLB)">
           <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -166,6 +172,18 @@
       </div>
 
       <div class="modal-content-area">
+        <!-- 3D Avatar Model Selection -->
+        <div class="field-group">
+          <label for="select-avatar-model">Pilihan Avatar 3D Utama</label>
+          <select id="select-avatar-model" class="input-studio">
+            <option value="vrm">✨ Maya Anime Host (VRM) - Full Animasi Tubuh, Tangan & Bibir</option>
+            <option value="wedding">🗿 Gadis Gaun Pengantin (GLB) - Patung Statis</option>
+          </select>
+          <span style="font-size: 11px; color: var(--text-muted);">
+            Format <strong>.VRM</strong> memiliki 171 sendi tulang & 18 blendshape mulut. Model GLB patung tidak memiliki tulang sendi.
+          </span>
+        </div>
+
         <!-- Gemini API Key -->
         <div class="field-group">
           <label for="input-api-key">Gemini API Key (Tersimpan Lokal)</label>
