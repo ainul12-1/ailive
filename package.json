@@ -1,13 +1,14 @@
 {
   "name": "ailive",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "bridge": "node scripts/tiktok-bridge.js"
   },
   "dependencies": {
     "@pixiv/three-vrm": "^3.5.5",
@@ -16,6 +17,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",
-    "vite": "^8.3.5"
+    "tiktok-live-connector": "^2.5.0",
+    "vite": "^8.3.5",
+    "ws": "^8.22.0"
   }
 }

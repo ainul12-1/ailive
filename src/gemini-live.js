@@ -1,13 +1,13 @@
 /**
  * Gemini Live API Client (WebSocket BidiGenerateContent)
- * Model: gemini-2.0-flash-live-001
+ * Model: gemini-3.1-flash-live-preview / gemini-3.8-live
  * Generates raw 24kHz PCM audio natively and streams real-time responses.
  */
 
 export class GeminiLiveClient {
   constructor(options = {}) {
     this.apiKey = options.apiKey || '';
-    this.model = options.model || 'gemini-2.0-flash-live-001';
+    this.model = options.model || 'gemini-3.1-flash-live-preview';
     this.voice = options.voice || 'Puck'; // Puck, Charon, Kore, Fenrir, Aoede
     this.systemInstruction =
       options.systemInstruction ||

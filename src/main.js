@@ -38,6 +38,7 @@ const selectModel = document.getElementById('select-model');
 const selectVoice = document.getElementById('select-voice');
 const inputSystemPrompt = document.getElementById('input-system-prompt');
 const inputTiktokUsername = document.getElementById('input-tiktok-username');
+const inputTiktokWsUrl = document.getElementById('input-tiktok-ws-url');
 const selectFilterMode = document.getElementById('select-filter-mode');
 const inputCooldown = document.getElementById('input-cooldown');
 const cooldownVal = document.getElementById('cooldown-val');
@@ -49,14 +50,22 @@ const btnSimSend = document.getElementById('btn-sim-send');
 const btnQuickGift = document.getElementById('btn-quick-gift');
 
 // --- 1. Load Stored Configuration ---
+// Clean up any invalid cached model from localStorage
+let savedModel = localStorage.getItem('gemini_model');
+if (!savedModel || savedModel.includes('2.0-flash-live-001') || savedModel.includes('2.5-flash-preview')) {
+  savedModel = 'gemini-3.1-flash-live-preview';
+  localStorage.setItem('gemini_model', savedModel);
+}
+
 const config = {
   apiKey: localStorage.getItem('gemini_api_key') || '',
-  model: localStorage.getItem('gemini_model') || 'gemini-2.0-flash-live-001',
+  model: savedModel,
   voice: localStorage.getItem('gemini_voice') || 'Aoede',
   systemPrompt:
     localStorage.getItem('gemini_system_prompt') ||
     'Kamu adalah Maya, streamer AI yang cantik, cerdas, ramah, dan mempesona di TikTok Live. Jawab setiap komentar penonton secara langsung, padat (1-2 kalimat), dalam bahasa Indonesia yang anggun, santai, dan menyenangkan. Sapa penonton dengan hangat.',
   tiktokUsername: localStorage.getItem('tiktok_username') || '',
+  tiktokWsUrl: localStorage.getItem('tiktok_ws_url') || 'ws://localhost:21213',
   filterMode: localStorage.getItem('tiktok_filter_mode') || 'all',
   cooldownSeconds: parseInt(localStorage.getItem('tiktok_cooldown') || '4', 10),
 };
@@ -67,6 +76,7 @@ selectModel.value = config.model;
 selectVoice.value = config.voice;
 inputSystemPrompt.value = config.systemPrompt;
 inputTiktokUsername.value = config.tiktokUsername;
+if (inputTiktokWsUrl) inputTiktokWsUrl.value = config.tiktokWsUrl;
 selectFilterMode.value = config.filterMode;
 inputCooldown.value = config.cooldownSeconds;
 cooldownVal.textContent = `${config.cooldownSeconds} detik`;
@@ -89,14 +99,14 @@ avatarRenderer.setLoadingCallback((isLoading, text) => {
   }
 });
 
-// Auto-load high-quality animated VRM avatar on startup
+// Auto-load user's default 3D avatar on startup (WhiteWeddingDressGirl)
 async function loadDefaultAvatar() {
   try {
-    await avatarRenderer.loadModel(sampleVrmUrl, 'Avatar VTuber 3D');
+    await avatarRenderer.loadModel(weddingGirlUrl, 'Avatar 3D');
   } catch (err) {
-    console.warn('Gagal memuat VRM default, mencoba GLB fallback...', err);
+    console.warn('Gagal memuat GLB default, mencoba VRM fallback...', err);
     try {
-      await avatarRenderer.loadModel(weddingGirlUrl, 'Fallback 3D');
+      await avatarRenderer.loadModel(sampleVrmUrl, 'Sample VRM');
     } catch (e) {
       console.error('Gagal memuat model:', e);
     }
@@ -161,6 +171,7 @@ updateSoundwave();
 // --- 4. Initialize TikTok Live Manager ---
 const tiktokManager = new TikTokLiveManager({
   targetUsername: config.tiktokUsername,
+  wsUrl: config.tiktokWsUrl,
   filterMode: config.filterMode,
   cooldownSeconds: config.cooldownSeconds,
   onStatusChange: (status, message) => {
@@ -266,8 +277,8 @@ document.addEventListener('touchstart', onFirstInteraction);
 if (config.apiKey) {
   geminiClient.connect();
 }
-if (config.tiktokUsername) {
-  tiktokManager.connectTikFinity();
+if (config.tiktokUsername || config.tiktokWsUrl) {
+  tiktokManager.connect(config.tiktokWsUrl);
 }
 
 // --- 5. Event Listeners ---
@@ -370,6 +381,7 @@ btnSaveSettings.addEventListener('click', () => {
   config.voice = selectVoice.value;
   config.systemPrompt = inputSystemPrompt.value.trim();
   config.tiktokUsername = inputTiktokUsername.value.trim();
+  config.tiktokWsUrl = (inputTiktokWsUrl ? inputTiktokWsUrl.value.trim() : '') || 'ws://localhost:21213';
   config.filterMode = selectFilterMode.value;
   config.cooldownSeconds = parseInt(inputCooldown.value, 10);
 
@@ -378,6 +390,7 @@ btnSaveSettings.addEventListener('click', () => {
   localStorage.setItem('gemini_voice', config.voice);
   localStorage.setItem('gemini_system_prompt', config.systemPrompt);
   localStorage.setItem('tiktok_username', config.tiktokUsername);
+  localStorage.setItem('tiktok_ws_url', config.tiktokWsUrl);
   localStorage.setItem('tiktok_filter_mode', config.filterMode);
   localStorage.setItem('tiktok_cooldown', config.cooldownSeconds);
 
@@ -393,10 +406,11 @@ btnSaveSettings.addEventListener('click', () => {
 
   // Update TikTok
   tiktokManager.setTargetUsername(config.tiktokUsername);
+  tiktokManager.setWsUrl(config.tiktokWsUrl);
   tiktokManager.filterMode = config.filterMode;
   tiktokManager.cooldownSeconds = config.cooldownSeconds;
-  if (config.tiktokUsername) {
-    tiktokManager.connectTikFinity();
+  if (config.tiktokUsername || config.tiktokWsUrl) {
+    tiktokManager.connect(config.tiktokWsUrl);
   }
 
   closeSettings();

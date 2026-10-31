@@ -179,8 +179,9 @@
         <div class="field-group">
           <label for="select-model">Model Gemini Live</label>
           <select id="select-model" class="input-studio">
-            <option value="gemini-2.0-flash-live-001">gemini-2.0-flash-live-001 (Rekomendasi)</option>
-            <option value="gemini-2.5-flash-preview-native-audio">gemini-2.5-flash-preview-native-audio</option>
+            <option value="gemini-3.1-flash-live-preview">gemini-3.1-flash-live-preview (Rekomendasi Cepat)</option>
+            <option value="gemini-3.8-live">gemini-3.8-live</option>
+            <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
           </select>
         </div>
 
@@ -206,6 +207,15 @@
         <div class="field-group">
           <label for="input-tiktok-username">Username TikTok Host / Streamer</label>
           <input type="text" id="input-tiktok-username" class="input-studio" placeholder="contoh: akun_streamer" />
+        </div>
+
+        <!-- TikTok WebSocket Server URL -->
+        <div class="field-group">
+          <label for="input-tiktok-ws-url">Server WebSocket TikTok (TikFinity / Bridge)</label>
+          <input type="text" id="input-tiktok-ws-url" class="input-studio" placeholder="ws://localhost:21213" value="ws://localhost:21213" />
+          <span style="font-size: 11px; color: var(--text-muted);">
+            Default: <code>ws://localhost:21213</code>. Jika buka dari HP Android, ganti localhost dengan IP PC (misal: <code>ws://192.168.1.10:21213</code>).
+          </span>
         </div>
 
         <!-- Auto-Reply Filter -->
