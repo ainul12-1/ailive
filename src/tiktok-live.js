@@ -135,9 +135,9 @@ export class TikTokLiveManager {
     if (isMobile && isLocalhost) {
       this.onStatusChange(
         'idle',
-        'HP Android: Masukkan IP PC (misal: ws://192.168.1.XX:21213) di Pengaturan atau gunakan Simulator'
+        'Masukkan username TikTok di Pengaturan untuk menyambungkan langsung di HP'
       );
-      console.warn('⚠️ [AILIVE Android]: localhost tidak dapat diakses dari HP. Silakan atur IP PC di Pengaturan.');
+      console.warn('⚠️ [AILIVE Android]: Masukkan username TikTok streamer di Pengaturan.');
       return;
     }
 

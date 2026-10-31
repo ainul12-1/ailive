@@ -228,18 +228,20 @@
 
         <!-- TikTok Target Account -->
         <div class="field-group">
-          <label for="input-tiktok-username">Username TikTok Host / Streamer</label>
+          <label for="input-tiktok-username">Username TikTok Host / Streamer (HP & PC Mandiri)</label>
           <input type="text" id="input-tiktok-username" class="input-studio" placeholder="contoh: akun_streamer" />
+          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            ✨ <b>100% Mandiri:</b> Baik di HP Android maupun PC, cukup ketik username streamer yang sedang LIVE, aplikasi akan langsung membaca komentar tanpa perlu laptop / software lain.
+          </span>
         </div>
 
-        <!-- TikTok WebSocket Server URL -->
+        <!-- TikTok WebSocket Server URL (Opsional) -->
         <div class="field-group">
-          <label for="input-tiktok-ws-url">Server WebSocket TikTok (TikFinity / Bridge)</label>
+          <label for="input-tiktok-ws-url">Server WebSocket Alternatif (Opsional / TikFinity)</label>
           <input type="text" id="input-tiktok-ws-url" class="input-studio" placeholder="ws://localhost:21213" value="ws://localhost:21213" />
-          <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
-            <span>💻 <b>Di Komputer PC:</b> Cukup masukkan username TikTok di atas, aplikasi PC akan membaca komen secara otomatis.</span>
-            <span>📱 <b>Di HP Android:</b> Sambungkan HP ke Wi-Fi yang sama dengan PC, lalu ganti localhost dengan IP PC Anda (contoh: <code>ws://192.168.1.15:21213</code>). Anda juga dapat langsung menguji respon avatar lewat panel Simulator di layar utama!</span>
-          </div>
+          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            Opsi cadangan jika ingin menghubungkan ke TikFinity atau Bridge eksternal. Biarkan default jika tidak digunakan.
+          </span>
         </div>
 
         <!-- Auto-Reply Filter -->

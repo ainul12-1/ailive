@@ -1,13 +1,9 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 
-#[cfg(not(target_os = "android"))]
 use piratetok_live_rs::TikTokLive;
-#[cfg(not(target_os = "android"))]
 use piratetok_live_rs::structs::TikTokLiveEvent;
-#[cfg(not(target_os = "android"))]
-use tauri::Emitter;
 
 pub struct TikTokListenerState {
     pub stop_signal: Arc<AtomicBool>,
@@ -21,7 +17,6 @@ impl Default for TikTokListenerState {
     }
 }
 
-#[cfg(not(target_os = "android"))]
 #[tauri::command]
 async fn start_tiktok_listener(
     app: AppHandle,
@@ -122,16 +117,6 @@ async fn start_tiktok_listener(
     });
 
     Ok("OK".into())
-}
-
-#[cfg(target_os = "android")]
-#[tauri::command]
-async fn start_tiktok_listener(
-    _app: AppHandle,
-    _username: String,
-    _state: State<'_, TikTokListenerState>,
-) -> Result<String, String> {
-    Err("PENGATURAN_FALLBACK_WS".into())
 }
 
 #[tauri::command]
