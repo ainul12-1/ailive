@@ -1,12 +1,12 @@
 [package]
-name = "tiktok-live-ai-avatar"
+name = "ailive"
 version = "1.0.0"
-description = "TikTok Live AI Avatar with Gemini Live API"
-authors = ["you"]
+description = "ailive - TikTok Live AI Avatar with Gemini Live API"
+authors = ["ainul12-1"]
 edition = "2021"
 
 [lib]
-name = "tiktok_live_ai_avatar_lib"
+name = "ailive_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

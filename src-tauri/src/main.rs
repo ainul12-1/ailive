@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    tiktok_live_ai_avatar_lib::run()
+    ailive_lib::run()
 }

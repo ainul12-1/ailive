@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TikTok Live AI Avatar",
+  "productName": "ailive",
   "version": "1.0.0",
-  "identifier": "com.tiktoklive.ai",
+  "identifier": "com.ailive.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "TikTok Live AI Avatar",
+        "title": "ailive - TikTok Live AI Avatar",
         "width": 1280,
         "height": 800,
         "minWidth": 900,
