@@ -69,9 +69,11 @@ export class AvatarRenderer {
     const baseFov = 28;
     const fov = aspect < 0.75 ? baseFov + (0.75 - aspect) * 26 : baseFov;
 
+    this.cameraZoom = parseFloat(localStorage.getItem('ailive_cam_zoom')) || 1.85;
+
     this.camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 100);
-    this.camera.position.set(0, 1.25, 1.35);
-    this.camera.lookAt(0, 1.18, 0);
+    this.camera.position.set(0, 1.25, this.cameraZoom);
+    this.camera.lookAt(0, 1.15, 0);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -84,8 +86,8 @@ export class AvatarRenderer {
     this.renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    // Neutral tone exposure prevents face wash-out / overexposure
-    this.renderer.toneMappingExposure = 0.96;
+    // Balanced tone exposure so skin highlight doesn't bleach nose and mouth details
+    this.renderer.toneMappingExposure = 0.90;
     this.container.appendChild(this.renderer.domElement);
 
     this.setupLighting();
@@ -101,32 +103,32 @@ export class AvatarRenderer {
    * Accentuates nose contour, lip separation, and cheekbone depth without bleaching skin white.
    */
   setupLighting() {
-    // 1. Ambient Light - Soft, warm, non-blinding fill
-    const ambientLight = new THREE.AmbientLight(0xfff6f0, 0.65);
+    // 1. Ambient Light - Softer ambient fill so facial contouring and nose shadow show clearly
+    const ambientLight = new THREE.AmbientLight(0xfff6f0, 0.42);
     this.scene.add(ambientLight);
 
-    // 2. Key Portrait Light - Crisp warm light angled to cast natural soft shadow under nose tip
-    const keyLight = new THREE.DirectionalLight(0xffeedb, 1.45);
-    keyLight.position.set(0.5, 1.85, 1.4);
+    // 2. Key Portrait Light - Angled from top-right to cast natural, crisp soft shadow under nose tip and lower lip
+    const keyLight = new THREE.DirectionalLight(0xffeedb, 0.95);
+    keyLight.position.set(0.6, 2.0, 1.4);
     this.scene.add(keyLight);
 
-    // 3. Cool Fill Light - Soft complementary fill from left to balance facial shadows
-    const fillLight = new THREE.DirectionalLight(0xdce7f5, 0.60);
-    fillLight.position.set(-0.8, 1.35, 1.2);
+    // 3. Cool Fill Light - Soft gentle fill from left
+    const fillLight = new THREE.DirectionalLight(0xdce7f5, 0.35);
+    fillLight.position.set(-0.8, 1.2, 1.2);
     this.scene.add(fillLight);
 
     // 4. Low Chin & Lip Contour Light - Subtle bounce emphasizing lower lip and jawline
-    const chinLight = new THREE.DirectionalLight(0xffded0, 0.35);
-    chinLight.position.set(0, 0.6, 1.1);
+    const chinLight = new THREE.DirectionalLight(0xffded0, 0.25);
+    chinLight.position.set(0, 0.5, 1.0);
     this.scene.add(chinLight);
 
     // 5. Stylistic Crimson Rim Light - Hair strands & streamer silhouette glow
-    const rimLight = new THREE.DirectionalLight(0xe11d48, 1.9);
+    const rimLight = new THREE.DirectionalLight(0xe11d48, 1.4);
     rimLight.position.set(-1.1, 1.6, -1.3);
     this.scene.add(rimLight);
 
     // 6. Warm Gold Secondary Rim Light
-    const goldRim = new THREE.DirectionalLight(0xfbbf24, 1.1);
+    const goldRim = new THREE.DirectionalLight(0xfbbf24, 0.85);
     goldRim.position.set(1.1, 1.1, -1.0);
     this.scene.add(goldRim);
   }
@@ -166,12 +168,79 @@ export class AvatarRenderer {
     window.addEventListener(
       'touchmove',
       (e) => {
-        if (e.touches.length > 0) {
+        if (e.touches.length === 1) {
           handleMove(e.touches[0].clientX, e.touches[0].clientY);
         }
       },
       { passive: true }
     );
+
+    // Mouse Wheel Zoom
+    this.container.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const delta = e.deltaY * 0.0015;
+        this.setCameraZoom(this.cameraZoom + delta);
+      },
+      { passive: false }
+    );
+
+    // Mobile Pinch-to-Zoom
+    let initialPinchDist = null;
+    let initialZoom = null;
+    this.container.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          initialPinchDist = Math.hypot(dx, dy);
+          initialZoom = this.cameraZoom;
+        }
+      },
+      { passive: true }
+    );
+
+    this.container.addEventListener(
+      'touchmove',
+      (e) => {
+        if (e.touches.length === 2 && initialPinchDist) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 10) {
+            const scale = initialPinchDist / dist;
+            this.setCameraZoom(initialZoom * scale);
+          }
+        }
+      },
+      { passive: true }
+    );
+
+    this.container.addEventListener('touchend', () => {
+      initialPinchDist = null;
+    });
+  }
+
+  setCameraZoom(zoomVal) {
+    this.cameraZoom = THREE.MathUtils.clamp(zoomVal, 1.15, 2.85);
+    localStorage.setItem('ailive_cam_zoom', this.cameraZoom.toString());
+    this.updateCameraFrame();
+  }
+
+  updateCameraFrame() {
+    if (!this.camera) return;
+    const headNode = this.vrmBones?.head;
+    if (headNode) {
+      const headPos = new THREE.Vector3();
+      headNode.getWorldPosition(headPos);
+      this.camera.position.set(0, headPos.y - 0.08, this.cameraZoom);
+      this.camera.lookAt(0, headPos.y - 0.20, 0);
+    } else {
+      this.camera.position.set(0, 1.25, this.cameraZoom);
+      this.camera.lookAt(0, 1.15, 0);
+    }
   }
 
   setAudioVolumeGetter(getter) {
@@ -251,8 +320,48 @@ export class AvatarRenderer {
   }
 
   /**
+   * Set VRM vowel mouth shape safely across VRM 0.0 (A, I, U, E, O) and VRM 1.0 (aa, ih, ou, ee, oh)
+   * Clamps mouth opening between 0 and maxOpen (default 0.38) to prevent jaw dislocation
+   */
+  setVowelSafe(vowel, weight, maxOpen = 0.38) {
+    if (!this.currentVrm?.expressionManager) return;
+    const em = this.currentVrm.expressionManager;
+    const clamped = THREE.MathUtils.clamp(weight, 0, maxOpen);
+    const map = {
+      aa: ['aa', 'a', 'A', 'Aa'],
+      ih: ['ih', 'i', 'I', 'Ii'],
+      ou: ['ou', 'u', 'U', 'Uu'],
+      ee: ['ee', 'e', 'E', 'Ee'],
+      oh: ['oh', 'o', 'O', 'Oh'],
+    };
+    const candidates = map[vowel.toLowerCase()] || [vowel];
+    for (const c of candidates) {
+      try {
+        em.setValue(c, clamped);
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Smoothly decay all mouth vowel shapes back to resting closed lips
+   */
+  decayVowelsSafe(factor = 0.25) {
+    if (!this.currentVrm?.expressionManager) return;
+    const em = this.currentVrm.expressionManager;
+    const vowels = ['aa', 'ih', 'ou', 'ee', 'oh', 'a', 'i', 'u', 'e', 'o', 'A', 'I', 'U', 'E', 'O'];
+    for (const v of vowels) {
+      try {
+        const val = em.getValue(v);
+        if (val !== undefined && val > 0.001) {
+          em.setValue(v, THREE.MathUtils.lerp(val, 0, factor));
+        }
+      } catch (_) {}
+    }
+  }
+
+  /**
    * Trigger modular emotional reaction or hand pose
-   * Supported types: 'love', 'wave', 'peace', 'middle_finger', 'dance', 'thanks'
+   * Supported types: 'love', 'middle_finger', 'peace', 'wave', 'dance', 'thanks', 'hide'
    */
   triggerReaction(type = 'thanks', duration = 3.5) {
     this.activeReaction = type;
@@ -332,19 +441,8 @@ export class AvatarRenderer {
               this.setClothColor(this.currentClothColor);
             }
 
-            // Frame camera at eye-level portrait with warm framing
-            const headNode = this.vrmBones.head;
-            if (headNode) {
-              const headPos = new THREE.Vector3();
-              headNode.getWorldPosition(headPos);
-              const isMobile = window.innerWidth < 768;
-              const camZ = isMobile ? 1.35 : 1.15;
-              this.camera.position.set(0, headPos.y - 0.04, camZ);
-              this.camera.lookAt(0, headPos.y - 0.08, 0);
-            } else {
-              this.camera.position.set(0, 1.25, 1.25);
-              this.camera.lookAt(0, 1.18, 0);
-            }
+            // Frame camera with chosen/persisted zoom distance (bust/torso view)
+            this.updateCameraFrame();
           } else {
             // Generic fallback
             const modelScene = gltf.scene;
@@ -557,12 +655,12 @@ export class AvatarRenderer {
       }
 
       // --- D. Natural Arms & Hands Conversational Gestures (Multi-Style) ---
-      const baseArmDown = 1.25; // ~72 degrees down (relaxed streamer desk pose)
-      const baseArmForward = 0.22;
-      const baseElbowBend = 0.45;
+      const baseArmDown = 1.38; // Relaxed resting arms at desk / streamer sides (~80 deg down)
+      const baseArmForward = 0.18;
+      const baseElbowBend = 0.35;
       const gPhase = this.talkGesturePhase;
 
-      // Evaluate active spontaneous reaction (e.g. Gift / Gratitude / Wave)
+      // Evaluate active spontaneous reaction (e.g. Gift / Gratitude / Wave / Middle Finger / Hide)
       let isReacting = false;
       let rWeight = 0;
       if (this.activeReaction) {
@@ -606,31 +704,80 @@ export class AvatarRenderer {
           }
           this.setExpressionSafe('happy', 0.85 * rWeight);
         } else if (pose === 'middle_finger') {
-          // --- 2. POSE JARI TENGAH (Middle Finger) ---
+          // --- 2. POSE JARI TENGAH (Reaching Forward Straight Toward Camera) ---
           if (b.rightUpperArm) {
-            b.rightUpperArm.rotation.z = baseArmDown - 0.85 * rWeight;
-            b.rightUpperArm.rotation.x = baseArmForward + 0.85 * rWeight;
-            b.rightUpperArm.rotation.y = -0.20 * rWeight;
+            // Thrust arm straight forward toward viewer / camera
+            b.rightUpperArm.rotation.z = (baseArmDown - 1.22) * (1 - rWeight) + 0.16 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 1.28 * rWeight;
+            b.rightUpperArm.rotation.y = -0.18 * rWeight;
           }
           if (b.rightLowerArm) {
-            b.rightLowerArm.rotation.y = baseElbowBend + 0.85 * rWeight;
-            b.rightLowerArm.rotation.x = 0.25 * rWeight;
+            // Extended forearm pointing forward into the lens
+            b.rightLowerArm.rotation.y = baseElbowBend * (1 - rWeight) + 0.22 * rWeight;
+            b.rightLowerArm.rotation.x = 0.15 * rWeight;
           }
           if (b.rightHand) {
-            b.rightHand.rotation.x = 0.40 * rWeight;
-            b.rightHand.rotation.y = 0.10 * rWeight;
-            b.rightHand.rotation.z = 0.20 * rWeight;
+            b.rightHand.rotation.x = 0.32 * rWeight;
+            b.rightHand.rotation.y = 0.05 * rWeight;
+            b.rightHand.rotation.z = 0.08 * rWeight;
           }
-          this._curlFingers('right', [true, true, false, true, true], rWeight * 1.2);
+          // Clench thumb, index, ring, little fingers into tight fist; middle finger fully straight
+          this._curlFingers('right', [true, true, false, true, true], rWeight * 1.35);
           this._straightenFingers('right', ['Middle']);
 
+          // Defiant confident smirk and slight head tilt
           if (b.head) {
-            b.head.rotation.x = -0.10 * rWeight;
-            b.head.rotation.y = 0.12 * rWeight;
+            b.head.rotation.x = -0.14 * rWeight;
+            b.head.rotation.z = 0.08 * rWeight;
+            b.head.rotation.y = 0.06 * rWeight;
           }
-          this.setExpressionSafe('surprised', 0.60 * rWeight);
+          this.setExpressionSafe('surprised', 0.50 * rWeight);
+        } else if (pose === 'hide') {
+          // --- 3. POSE SEMBUNYI / PETAK UMPET (Peek-a-boo: Hands Cover Face, Then Peek) ---
+          const peekSplit = this.reactionProgress > 0.40 && this.reactionProgress < 0.75
+            ? Math.sin((this.reactionProgress - 0.40) / 0.35 * Math.PI) * 0.28
+            : 0;
+
+          // Both hands raise to playfully cover cheeks/eyes
+          if (b.rightUpperArm) {
+            b.rightUpperArm.rotation.z = baseArmDown - 0.75 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 1.05 * rWeight;
+            b.rightUpperArm.rotation.y = (-0.45 + peekSplit) * rWeight;
+          }
+          if (b.rightLowerArm) {
+            b.rightLowerArm.rotation.y = baseElbowBend + 1.40 * rWeight;
+            b.rightLowerArm.rotation.z = (0.35 + peekSplit * 0.5) * rWeight;
+          }
+          if (b.rightHand) {
+            b.rightHand.rotation.x = 0.35 * rWeight;
+            b.rightHand.rotation.y = (0.45 - peekSplit) * rWeight;
+          }
+
+          if (b.leftUpperArm) {
+            b.leftUpperArm.rotation.z = -baseArmDown + 0.75 * rWeight;
+            b.leftUpperArm.rotation.x = baseArmForward + 1.05 * rWeight;
+            b.leftUpperArm.rotation.y = (0.45 - peekSplit) * rWeight;
+          }
+          if (b.leftLowerArm) {
+            b.leftLowerArm.rotation.y = -baseElbowBend - 1.40 * rWeight;
+            b.leftLowerArm.rotation.z = (-0.35 - peekSplit * 0.5) * rWeight;
+          }
+          if (b.leftHand) {
+            b.leftHand.rotation.x = 0.35 * rWeight;
+            b.leftHand.rotation.y = (-0.45 + peekSplit) * rWeight;
+          }
+
+          // Relaxed open fingers near face
+          this._straightenFingers('right', ['Thumb', 'Index', 'Middle', 'Ring', 'Little']);
+          this._straightenFingers('left', ['Thumb', 'Index', 'Middle', 'Ring', 'Little']);
+
+          if (b.head) {
+            b.head.rotation.x = (0.12 - peekSplit * 0.15) * rWeight;
+            b.head.rotation.z = peekSplit * 0.12 * rWeight;
+          }
+          this.setExpressionSafe('happy', (0.65 + peekSplit * 0.35) * rWeight);
         } else if (pose === 'peace') {
-          // --- 3. POSE PEACE / V-SIGN ---
+          // --- 4. POSE PEACE / V-SIGN ---
           if (b.rightUpperArm) {
             b.rightUpperArm.rotation.z = baseArmDown - 0.70 * rWeight;
             b.rightUpperArm.rotation.x = baseArmForward + 0.65 * rWeight;
@@ -650,7 +797,7 @@ export class AvatarRenderer {
           if (b.head) b.head.rotation.z = -0.15 * rWeight;
           this.setExpressionSafe('happy', 0.85 * rWeight);
         } else if (pose === 'wave') {
-          // --- 4. POSE WAVE (Melambaikan Tangan Menyapa) ---
+          // --- 5. POSE WAVE (Melambaikan Tangan Menyapa) ---
           const waveSwing = Math.sin(this.reactionProgress * Math.PI * 7) * 0.45 * rWeight;
           if (b.rightUpperArm) {
             b.rightUpperArm.rotation.z = 1.45 * rWeight;
@@ -671,7 +818,7 @@ export class AvatarRenderer {
           }
           this.setExpressionSafe('happy', 0.80 * rWeight);
         } else if (pose === 'dance') {
-          // --- 5. POSE DANCE (Joget Santai & Asik) ---
+          // --- 6. POSE DANCE (Joget Santai & Asik) ---
           const danceCycle = Math.sin(this.reactionProgress * Math.PI * 5);
           const danceCos = Math.cos(this.reactionProgress * Math.PI * 5);
           if (b.hips) {
@@ -695,95 +842,85 @@ export class AvatarRenderer {
           }
           this.setExpressionSafe('happy', 0.70 * rWeight);
         } else {
-          // --- 6. POSE THANKS (Terima Kasih / Sungkem / Gift Appreciation) ---
+          // --- 7. POSE THANKS (Terima Kasih / Sungkem Dua Tangan Rapi) ---
           if (b.rightUpperArm) {
-            b.rightUpperArm.rotation.z = baseArmDown - 0.45 * rWeight;
-            b.rightUpperArm.rotation.x = baseArmForward + 0.45 * rWeight;
-            b.rightUpperArm.rotation.y = -0.35 * rWeight;
+            b.rightUpperArm.rotation.z = baseArmDown - 0.55 * rWeight;
+            b.rightUpperArm.rotation.x = baseArmForward + 0.55 * rWeight;
+            b.rightUpperArm.rotation.y = -0.32 * rWeight;
           }
           if (b.rightLowerArm) {
-            b.rightLowerArm.rotation.y = baseElbowBend + 0.95 * rWeight;
-            b.rightLowerArm.rotation.z = 0.35 * rWeight;
+            b.rightLowerArm.rotation.y = baseElbowBend + 0.90 * rWeight;
+            b.rightLowerArm.rotation.z = 0.30 * rWeight;
           }
           if (b.rightHand) {
             b.rightHand.rotation.x = 0.35 * rWeight;
-            b.rightHand.rotation.y = 0.25 * rWeight;
+            b.rightHand.rotation.y = 0.35 * rWeight;
           }
+
           if (b.leftUpperArm) {
-            b.leftUpperArm.rotation.z = -baseArmDown + 0.25 * rWeight;
-            b.leftUpperArm.rotation.x = baseArmForward + 0.20 * rWeight;
+            b.leftUpperArm.rotation.z = -baseArmDown + 0.55 * rWeight;
+            b.leftUpperArm.rotation.x = baseArmForward + 0.55 * rWeight;
+            b.leftUpperArm.rotation.y = 0.32 * rWeight;
           }
           if (b.leftLowerArm) {
-            b.leftLowerArm.rotation.y = -baseElbowBend - 0.35 * rWeight;
+            b.leftLowerArm.rotation.y = -baseElbowBend - 0.90 * rWeight;
+            b.leftLowerArm.rotation.z = -0.30 * rWeight;
           }
+          if (b.leftHand) {
+            b.leftHand.rotation.x = 0.35 * rWeight;
+            b.leftHand.rotation.y = -0.35 * rWeight;
+          }
+
+          this._straightenFingers('right', ['Thumb', 'Index', 'Middle', 'Ring', 'Little']);
+          this._straightenFingers('left', ['Thumb', 'Index', 'Middle', 'Ring', 'Little']);
+
           if (b.head) {
-            b.head.rotation.x += 0.12 * rWeight;
+            b.head.rotation.x = 0.22 * rWeight; // Polite bow
           }
-          this.setExpressionSafe('happy', 0.75 * rWeight);
+          this.setExpressionSafe('happy', 0.85 * rWeight);
         }
       } else {
-        // --- NORMAL MULTI-STYLE CONVERSATIONAL GESTURES ---
-        let rGestureX = 0, rGestureY = 0, rGestureZ = 0, rElbowLift = 0;
-        let lGestureX = 0, lGestureY = 0, lGestureZ = 0, lElbowLift = 0;
+        // --- RELAXED CONVERSATIONAL GESTURES (NO STIFF HIGH ARM LIFTS) ---
+        let rForearm = 0, lForearm = 0;
+        let rWrist = 0, lWrist = 0;
 
         if (this.isTalking) {
-          if (this.gestureStyle === 0) {
-            // Style 0: Dominant Right Hand Explaining
-            rGestureX = (0.28 + Math.sin(gPhase * 1.1) * 0.22) * vol;
-            rGestureY = Math.cos(gPhase * 0.8) * 0.18 * vol;
-            rGestureZ = Math.sin(gPhase * 1.4) * 0.15 * vol;
-            rElbowLift = (0.55 + Math.sin(gPhase * 1.3) * 0.25) * vol;
+          // Gentle forearm and wrist cadence - arms remain resting down comfortably
+          rForearm = (0.08 + Math.sin(gPhase * 1.1) * 0.06) * vol;
+          rWrist = Math.sin(gPhase * 1.5) * 0.10 * vol;
 
-            lGestureX = Math.cos(gPhase * 0.8 + 1.2) * 0.10 * vol;
-          } else if (this.gestureStyle === 1) {
-            // Style 1: Two-Hand Warm Storytelling Emphasis
-            rGestureX = (0.22 + Math.sin(gPhase * 1.2) * 0.16) * vol;
-            rElbowLift = (0.42 + Math.sin(gPhase * 1.2) * 0.20) * vol;
-
-            lGestureX = (0.20 + Math.cos(gPhase * 1.2) * 0.16) * vol;
-            lElbowLift = (0.38 + Math.cos(gPhase * 1.2) * 0.20) * vol;
-          } else if (this.gestureStyle === 2) {
-            // Style 2: Left Hand Active Gesturing
-            lGestureX = (0.28 + Math.cos(gPhase * 1.1) * 0.22) * vol;
-            lElbowLift = (0.50 + Math.cos(gPhase * 1.3) * 0.25) * vol;
-
-            rGestureX = Math.sin(gPhase * 0.8) * 0.10 * vol;
-          } else {
-            // Style 3: Thoughtful / Gentle Listen & Talk
-            rGestureX = (0.15 + Math.sin(gPhase * 0.9) * 0.10) * vol;
-            rElbowLift = (0.30 + Math.sin(gPhase * 0.9) * 0.15) * vol;
-          }
+          lForearm = (0.06 + Math.cos(gPhase * 0.9) * 0.05) * vol;
+          lWrist = Math.cos(gPhase * 1.4) * 0.08 * vol;
         }
 
-        // Left Arm application
+        // Left Arm application - resting naturally at desk level
         if (b.leftUpperArm) {
-          b.leftUpperArm.rotation.z = -baseArmDown + breathSine * 0.015 + lGestureZ;
-          b.leftUpperArm.rotation.x = baseArmForward + lGestureX;
-          b.leftUpperArm.rotation.y = 0.15 + lGestureY;
+          b.leftUpperArm.rotation.z = -baseArmDown + breathSine * 0.012;
+          b.leftUpperArm.rotation.x = baseArmForward + (this.isTalking ? 0.04 * vol : 0);
+          b.leftUpperArm.rotation.y = 0.12;
         }
         if (b.leftLowerArm) {
-          b.leftLowerArm.rotation.y = -baseElbowBend - lElbowLift + breathSine * 0.02;
-          b.leftLowerArm.rotation.z = -0.15;
+          b.leftLowerArm.rotation.y = -baseElbowBend - lForearm;
+          b.leftLowerArm.rotation.z = -0.12;
         }
         if (b.leftHand) {
-          b.leftHand.rotation.x = 0.12 + (this.isTalking ? Math.cos(gPhase * 1.6) * 0.15 * vol : 0);
-          b.leftHand.rotation.z = 0.08;
+          b.leftHand.rotation.x = 0.10 + lWrist;
+          b.leftHand.rotation.z = 0.06;
         }
 
-        // Right Arm application
+        // Right Arm application - resting naturally at desk level
         if (b.rightUpperArm) {
-          b.rightUpperArm.rotation.z = baseArmDown - breathSine * 0.015 - (this.isTalking ? 0.24 * vol : 0) - rGestureZ;
-          b.rightUpperArm.rotation.x = baseArmForward + (this.isTalking ? 0.30 * vol : 0) + rGestureX;
-          b.rightUpperArm.rotation.y = -0.18 + rGestureY;
+          b.rightUpperArm.rotation.z = baseArmDown - breathSine * 0.012 - (this.isTalking ? 0.05 * vol : 0);
+          b.rightUpperArm.rotation.x = baseArmForward + (this.isTalking ? 0.06 * vol : 0);
+          b.rightUpperArm.rotation.y = -0.12;
         }
         if (b.rightLowerArm) {
-          b.rightLowerArm.rotation.y = baseElbowBend + rElbowLift;
-          b.rightLowerArm.rotation.z = 0.18 + (this.isTalking ? Math.cos(gPhase) * 0.15 * vol : 0);
+          b.rightLowerArm.rotation.y = baseElbowBend + rForearm;
+          b.rightLowerArm.rotation.z = 0.14;
         }
         if (b.rightHand) {
-          b.rightHand.rotation.x = 0.20 + (this.isTalking ? Math.sin(gPhase * 2.0) * 0.25 * vol : 0);
-          b.rightHand.rotation.y = (this.isTalking ? Math.cos(gPhase * 1.5) * 0.20 * vol : 0);
-          b.rightHand.rotation.z = -0.10;
+          b.rightHand.rotation.x = 0.14 + rWrist;
+          b.rightHand.rotation.z = -0.08;
         }
       }
 
@@ -794,9 +931,9 @@ export class AvatarRenderer {
         const blinkProgress = (this.blinkTimer - this.nextBlinkTime) / this.blinkDuration;
         if (blinkProgress <= 1.0) {
           const blinkWeight = Math.sin(blinkProgress * Math.PI);
-          exp?.setValue('blink', blinkWeight);
+          this.setExpressionSafe('blink', blinkWeight);
         } else {
-          exp?.setValue('blink', 0.0);
+          this.setExpressionSafe('blink', 0.0);
           this.isBlinking = false;
           this.blinkTimer = 0;
           // Random natural interval: 2.5 to 5.5s with 25% chance of realistic double-blink
@@ -806,38 +943,28 @@ export class AvatarRenderer {
       }
 
       // --- F. Real-time Multi-Vowel Dynamic Lip-Sync & Facial Expressions ---
+      // Clamped to max 0.38 opening to prevent unnatural anime jaw dropping
       if (exp) {
         if (isReacting) {
-          // Radiant gratitude smile during gift/greeting reaction
-          exp.setValue('happy', 0.85 * rWeight);
-          exp.setValue('surprised', 0.20 * rWeight);
+          // Expressive reactions handle their own expression above
         } else if (this.isTalking) {
-          // Conversational multi-vowel articulation cycling with audio cadence
-          const vowelCycle = elapsedTime * 14.5;
-          const openA = Math.max(0, Math.sin(vowelCycle)) * vol * 2.2;
-          const openO = Math.max(0, Math.sin(vowelCycle + 1.2)) * vol * 1.8;
-          const openI = Math.max(0, Math.cos(vowelCycle * 0.8)) * vol * 1.3;
-          const openU = Math.max(0, Math.sin(vowelCycle * 1.5 + 2.0)) * vol * 1.1;
-          const openE = Math.max(0, Math.cos(vowelCycle * 1.2)) * vol * 1.1;
+          const mouthOpen = Math.min(0.36, vol * 0.72);
+          const vowelCycle = elapsedTime * 11.5;
+          const aWeight = Math.max(0, Math.sin(vowelCycle)) * mouthOpen;
+          const oWeight = Math.max(0, -Math.sin(vowelCycle)) * mouthOpen * 0.65;
+          const iWeight = Math.max(0, Math.cos(vowelCycle * 0.85)) * mouthOpen * 0.45;
 
-          exp.setValue('aa', Math.min(1.0, openA));
-          exp.setValue('oh', Math.min(1.0, openO));
-          exp.setValue('ih', Math.min(1.0, openI));
-          exp.setValue('ou', Math.min(1.0, openU));
-          exp.setValue('ee', Math.min(1.0, openE));
+          this.setVowelSafe('aa', aWeight, 0.36);
+          this.setVowelSafe('oh', oWeight, 0.30);
+          this.setVowelSafe('ih', iWeight, 0.25);
 
-          // Friendly conversational smile while talking
-          exp.setValue('happy', 0.25 + vol * 0.15);
+          // Warm pleasant smile while speaking
+          this.setExpressionSafe('happy', 0.22 + vol * 0.12);
         } else {
           // Smooth decay when silent
-          exp.setValue('aa', THREE.MathUtils.lerp(exp.getValue('aa') || 0, 0, 0.25));
-          exp.setValue('oh', THREE.MathUtils.lerp(exp.getValue('oh') || 0, 0, 0.25));
-          exp.setValue('ih', THREE.MathUtils.lerp(exp.getValue('ih') || 0, 0, 0.25));
-          exp.setValue('ou', THREE.MathUtils.lerp(exp.getValue('ou') || 0, 0, 0.25));
-          exp.setValue('ee', THREE.MathUtils.lerp(exp.getValue('ee') || 0, 0, 0.25));
-
+          this.decayVowelsSafe(0.25);
           // Gentle pleasant resting host expression
-          exp.setValue('happy', THREE.MathUtils.lerp(exp.getValue('happy') || 0, 0.12, 0.1));
+          this.setExpressionSafe('happy', 0.08);
         }
       }
 

@@ -516,7 +516,7 @@ const btnSimGreet = document.getElementById('btn-sim-greet');
 if (btnQuickGreet) btnQuickGreet.addEventListener('click', triggerGreetRecentJoiners);
 if (btnSimGreet) btnSimGreet.addEventListener('click', triggerGreetRecentJoiners);
 
-// Modular Hand Poses & Expressions (❤️ Love, 🖕 Jari Tengah, ✌️ Peace, 👋 Wave, 💃 Joget, 🙏 Makasih)
+// Modular Hand Poses & Expressions (❤️ Love, 🖕 Jari Tengah, 🙈 Sembunyi, ✌️ Peace, 👋 Wave, 💃 Joget, 🙏 Makasih)
 document.querySelectorAll('.stage-pose-pill, .pose-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const pose = btn.getAttribute('data-pose');
@@ -525,6 +525,27 @@ document.querySelectorAll('.stage-pose-pill, .pose-btn').forEach((btn) => {
     speechTextEl.textContent = `[Pose Avatar]: Menjalankan pose "${pose}"...`;
   });
 });
+
+// Camera Zoom Controls (Zoom In, Zoom Out, Reset 1x)
+const btnZoomIn = document.getElementById('btn-zoom-in');
+const btnZoomOut = document.getElementById('btn-zoom-out');
+const btnZoomReset = document.getElementById('btn-zoom-reset');
+
+if (btnZoomIn) {
+  btnZoomIn.addEventListener('click', () => {
+    avatarRenderer.setCameraZoom(avatarRenderer.cameraZoom - 0.22);
+  });
+}
+if (btnZoomOut) {
+  btnZoomOut.addEventListener('click', () => {
+    avatarRenderer.setCameraZoom(avatarRenderer.cameraZoom + 0.22);
+  });
+}
+if (btnZoomReset) {
+  btnZoomReset.addEventListener('click', () => {
+    avatarRenderer.setCameraZoom(1.85);
+  });
+}
 
 // Simulator Chat Send
 btnSimSend.addEventListener('click', () => {

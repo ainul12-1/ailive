@@ -509,16 +509,18 @@ html, body {
 }
 
 .chat-item {
-  background: var(--glass-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-specular-bevel), 0 4px 16px rgba(0, 0, 0, 0.25);
-  border-radius: var(--radius-md);
-  padding: 11px 14px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(12, 18, 32, 0.68);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.28), 0 6px 20px rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+  padding: 12px 16px;
   font-size: 13px;
   user-select: text;
   animation: messageIn 0.28s var(--ease-spring);
+  position: relative;
+  overflow: hidden;
 }
 
 @keyframes messageIn {
@@ -531,28 +533,30 @@ html, body {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: #fb7185;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
 }
 
 .chat-item.gift-item {
-  background: linear-gradient(135deg, rgba(225, 29, 72, 0.22), rgba(147, 51, 234, 0.18));
-  border-color: rgba(244, 63, 94, 0.45);
-  box-shadow: 0 0 20px rgba(225, 29, 72, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.28), rgba(147, 51, 234, 0.22)), rgba(15, 23, 42, 0.75);
+  border-color: rgba(244, 63, 94, 0.55);
+  box-shadow: 0 0 24px rgba(225, 29, 72, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
-/* Simulator Footer Control */
+/* Simulator Footer Control - Apple VisionOS Liquid Glass Dock */
 .simulator-panel {
-  padding: 16px;
-  border-top: 1px solid var(--glass-border);
-  background: rgba(10, 14, 22, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(12, 17, 29, 0.85) 0%, rgba(7, 10, 19, 0.95) 100%);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
   display: flex;
   flex-direction: column;
   gap: 10px;
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .sim-header {
@@ -563,30 +567,106 @@ html, body {
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-muted);
+  letter-spacing: 0.5px;
 }
 
 .sim-input-row {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  background: rgba(18, 25, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.15), inset 0 2px 6px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+  padding: 5px 6px;
+  border-radius: 18px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all var(--ease-fast);
 }
 
+.sim-input-row:focus-within {
+  border-color: rgba(225, 29, 72, 0.5);
+  box-shadow: 0 0 16px rgba(225, 29, 72, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+.sim-input-row .input-studio {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 6px 10px !important;
+  border-radius: 12px;
+}
+
+/* ============================================================
+   LIQUID GLASS FORM CONTROLS & DROPDOWNS
+   ============================================================ */
 .input-studio {
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--glass-border);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.35);
   color: #fff;
-  padding: 9px 13px;
-  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  border-radius: 12px;
   font-size: 13px;
   font-family: inherit;
   outline: none;
   width: 100%;
-  transition: border-color var(--ease-fast);
+  transition: all var(--ease-fast);
   min-width: 0;
 }
+
 .input-studio:focus {
   border-color: var(--accent-rose);
-  box-shadow: 0 0 12px var(--accent-rose-glow), inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 16px var(--accent-rose-glow), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+/* Custom Liquid Glass Dropdown (<select>) - No Chrome default ugly box */
+select.input-studio {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: rgba(18, 26, 45, 0.82);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23fb7185' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px 14px;
+  padding-right: 42px;
+  cursor: pointer;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+select.input-studio:hover {
+  border-color: rgba(244, 63, 94, 0.55);
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+select.input-studio option {
+  background-color: #0b1120;
+  color: #f8fafc;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Custom Liquid Glass Textarea */
+textarea.input-studio {
+  border-radius: 14px;
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.55;
+  padding: 12px 16px;
+  background: rgba(13, 20, 36, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.18), inset 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+
+textarea.input-studio:focus {
+  border-color: var(--accent-rose);
+  box-shadow: 0 0 18px var(--accent-rose-glow), inset 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 
 /* ============================================================
@@ -966,6 +1046,37 @@ body.obs-mode #avatar-viewport {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding: 2px;
+}
+.stage-zoom-controls {
+  display: flex;
+  align-items: center;
+  background: rgba(18, 25, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-pill);
+  padding: 2px 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  flex-shrink: 0;
+}
+.stage-zoom-btn {
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all var(--ease-snappy);
+}
+.stage-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.stage-zoom-btn:active {
+  transform: scale(0.92);
+  background: rgba(225, 29, 72, 0.35);
 }
 .stage-action-pill {
   background: rgba(16, 185, 129, 0.22);

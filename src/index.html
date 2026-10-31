@@ -67,16 +67,23 @@
       <section id="avatar-viewport">
         <!-- Quick Stage Action & Pose Bar -->
         <div class="stage-quick-bar" id="stage-quick-bar">
+          <!-- Camera Zoom Controls -->
+          <div class="stage-zoom-controls">
+            <button id="btn-zoom-in" class="stage-zoom-btn" title="Dekatkan Kamera (Zoom In)">🔍+</button>
+            <button id="btn-zoom-reset" class="stage-zoom-btn" title="Reset Jarak Kamera (Default Bust View)">1x</button>
+            <button id="btn-zoom-out" class="stage-zoom-btn" title="Jauhkan Kamera (Zoom Out)">🔍−</button>
+          </div>
           <button id="btn-quick-greet" class="stage-action-pill" title="Sapa 3 Penonton Terbaru yang Masuk">
             👋 Sapa 3 Baru
           </button>
           <div class="stage-pose-pills">
+            <button class="stage-pose-pill" data-pose="hide" title="Pose Petak Umpet">🙈 Sembunyi</button>
             <button class="stage-pose-pill" data-pose="love" title="Pose Finger Heart">❤️ Love</button>
-            <button class="stage-pose-pill" data-pose="middle_finger" title="Pose Jari Tengah">🖕 Jari</button>
+            <button class="stage-pose-pill" data-pose="middle_finger" title="Pose Jari Tengah Nantangin">🖕 Jari</button>
             <button class="stage-pose-pill" data-pose="peace" title="Pose Peace">✌️ Peace</button>
             <button class="stage-pose-pill" data-pose="wave" title="Pose Melambai">👋 Wave</button>
             <button class="stage-pose-pill" data-pose="dance" title="Pose Joget">💃 Joget</button>
-            <button class="stage-pose-pill" data-pose="thanks" title="Pose Terima Kasih">🙏 Makasih</button>
+            <button class="stage-pose-pill" data-pose="thanks" title="Pose Terima Kasih Sungkem">🙏 Makasih</button>
           </div>
         </div>
 
@@ -151,6 +158,7 @@
           </div>
           <!-- Modular Pose Trigger Row -->
           <div class="sim-pose-row" style="display: flex; gap: 6px; overflow-x: auto; padding: 4px 0;">
+            <button class="pose-btn" data-pose="hide" title="Petak Umpet">🙈 Sembunyi</button>
             <button class="pose-btn" data-pose="love" title="Finger Heart">❤️ Love</button>
             <button class="pose-btn" data-pose="middle_finger" title="Jari Tengah">🖕 Jari</button>
             <button class="pose-btn" data-pose="peace" title="Peace V-Sign">✌️ Peace</button>
@@ -239,13 +247,16 @@
 
         <!-- Voice Selection -->
         <div class="field-group">
-          <label for="select-voice">Karakter Suara AI (Native Voice)</label>
+          <label for="select-voice">Karakter Suara AI (Koleksi Lengkap Gemini Live)</label>
           <select id="select-voice" class="input-studio">
-            <option value="Aoede">Aoede (Merdu, Ramah & Menawan - Wanita)</option>
-            <option value="Kore">Kore (Hangat, Lembut - Wanita)</option>
-            <option value="Puck">Puck (Ceria, Enerjik - Pria)</option>
-            <option value="Charon">Charon (Berat, Dewasa - Pria)</option>
-            <option value="Fenrir">Fenrir (Tegas, Berwibawa - Pria)</option>
+            <option value="Kore">🌸 Kore (Paling Halus & Lembut, Manis - Wanita)</option>
+            <option value="Aoede">✨ Aoede (Merdu, Jernih & Menawan - Wanita)</option>
+            <option value="Leda">🌿 Leda (Hangat, Bersahabat & Ramah - Wanita)</option>
+            <option value="Zephyr">🍃 Zephyr (Ceria, Santai & Segar - Wanita)</option>
+            <option value="Puck">⚡ Puck (Ceria, Cepat & Enerjik - Pria)</option>
+            <option value="Charon">🎙️ Charon (Berat, Berwibawa & Dewasa - Pria)</option>
+            <option value="Fenrir">🔥 Fenrir (Tegas, Gagah & Maskulin - Pria)</option>
+            <option value="Orus">🏛️ Orus (Elegan, Tenang & Formal - Pria)</option>
           </select>
         </div>
 
