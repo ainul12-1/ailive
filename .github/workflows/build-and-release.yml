@@ -73,6 +73,7 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           NDK_PATH=$(ls -d $ANDROID_HOME/ndk/* | tail -n 1)
           echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          echo "$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
           echo "Using Android NDK: $NDK_PATH"
 
       - name: Setup Node.js
@@ -91,6 +92,18 @@ jobs:
 
       - name: Initialize Android
         run: npx tauri android init --ci
+
+      - name: Configure Android Permissions & Network Security
+        run: |
+          MANIFEST="src-tauri/gen/android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+              sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' "$MANIFEST"
+            fi
+            sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
+            echo "Updated AndroidManifest.xml successfully:"
+            cat "$MANIFEST"
+          fi
 
       - name: Make gradlew executable
         run: chmod +x src-tauri/gen/android/gradlew || true
