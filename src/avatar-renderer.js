@@ -55,6 +55,7 @@ export class AvatarRenderer {
     this.onHideStateChange = () => {};
 
     this._currentObjectUrl = null;
+    this._cameraFramed = false;
     this.onLoadingChange = () => {};
 
     this.initScene();
@@ -237,16 +238,22 @@ export class AvatarRenderer {
 
   updateCameraFrame() {
     if (!this.camera) return;
+    if (this.currentModel) {
+      this.currentModel.updateMatrixWorld(true);
+    }
+    let targetHeadY = 1.35;
     const headNode = this.vrmBones?.head;
     if (headNode) {
+      headNode.updateWorldMatrix(true, false);
       const headPos = new THREE.Vector3();
       headNode.getWorldPosition(headPos);
-      this.camera.position.set(0, headPos.y - 0.08, this.cameraZoom);
-      this.camera.lookAt(0, headPos.y - 0.20, 0);
-    } else {
-      this.camera.position.set(0, 1.25, this.cameraZoom);
-      this.camera.lookAt(0, 1.15, 0);
+      if (headPos.y > 0.6) {
+        targetHeadY = headPos.y;
+      }
     }
+    const zoom = THREE.MathUtils.clamp(this.cameraZoom || 1.85, 1.15, 2.85);
+    this.camera.position.set(0, targetHeadY - 0.08, zoom);
+    this.camera.lookAt(0, targetHeadY - 0.20, 0);
   }
 
   setAudioVolumeGetter(getter) {
@@ -417,10 +424,18 @@ export class AvatarRenderer {
             this.currentVrm = vrm;
             this.currentModel = vrm.scene;
             VRMUtils.rotateVRM0(vrm);
+            vrm.scene.position.set(0, 0, 0);
+            vrm.scene.rotation.set(0, 0, 0);
             this.scene.add(vrm.scene);
 
             // Cache humanoid skeleton bones
             this.cacheVrmBones(vrm);
+
+            // Compute initial bone transformations immediately
+            vrm.scene.updateMatrixWorld(true);
+            try {
+              vrm.update(0);
+            } catch (_) {}
 
             // Cache clothing materials and enhance face shading contrast
             this.clothMaterials = [];
@@ -545,6 +560,7 @@ export class AvatarRenderer {
   }
 
   clearCurrentModel() {
+    this._cameraFramed = false;
     this.isHidingState = false;
     this.hidePhase = 'idle';
     this.hideTransitionProgress = 0;
@@ -635,6 +651,10 @@ export class AvatarRenderer {
     // 🎭 VRM: ADVANCED MULTI-STATE LIVING HUMAN MOTION ENGINE
     // =====================================================================
     if (this.currentVrm) {
+      if (!this._cameraFramed) {
+        this.updateCameraFrame();
+        this._cameraFramed = true;
+      }
       const b = this.vrmBones;
       const exp = this.currentVrm.expressionManager;
 
