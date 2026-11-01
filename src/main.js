@@ -112,7 +112,7 @@ async function loadDefaultAvatar() {
     speechTextEl.textContent = '✨ Maya (VRM) aktif: Full animasi ekspresi, gestur tangan & bibir siap live!';
   } catch (err) {
     console.error('Gagal memuat VRM:', err);
-    speechTextEl.textContent = `⚠️ Gagal memuat VRM: ${err.message}`;
+    speechTextEl.textContent = `⚠️ Gagal memuat VRM: ${err.message || err}`;
   }
 }
 loadDefaultAvatar();

@@ -14,6 +14,7 @@ export class AvatarRenderer {
     this.currentModel = null;
     this.currentVrm = null;
     this.vrmBones = {};
+    this.hipsRestPosition = null;
     this.clothMaterials = [];
     this.currentClothColor = null;
     this.audioVolumeGetter = () => 0;
@@ -76,7 +77,8 @@ export class AvatarRenderer {
     const baseFov = 28;
     const fov = aspect < 0.75 ? baseFov + (0.75 - aspect) * 26 : baseFov;
 
-    this.cameraZoom = parseFloat(localStorage.getItem('ailive_cam_zoom')) || 1.85;
+    const savedZoom = parseFloat(localStorage.getItem('ailive_cam_zoom'));
+    this.cameraZoom = (!savedZoom || isNaN(savedZoom) || savedZoom < 1.0 || savedZoom > 3.0) ? 1.85 : savedZoom;
 
     this.camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 100);
     this.camera.position.set(0, 1.25, this.cameraZoom);
@@ -241,13 +243,13 @@ export class AvatarRenderer {
     if (this.currentModel) {
       this.currentModel.updateMatrixWorld(true);
     }
-    let targetHeadY = 1.35;
+    let targetHeadY = 1.38;
     const headNode = this.vrmBones?.head;
     if (headNode) {
       headNode.updateWorldMatrix(true, false);
       const headPos = new THREE.Vector3();
       headNode.getWorldPosition(headPos);
-      if (headPos.y > 0.6) {
+      if (headPos.y > 0.8 && headPos.y < 2.2) {
         targetHeadY = headPos.y;
       }
     }
@@ -271,6 +273,9 @@ export class AvatarRenderer {
       if (mat.color) mat.color.copy(color);
       if (mat.shadeColor) {
         mat.shadeColor.copy(color).multiplyScalar(0.72);
+      }
+      if (mat.shadeColorFactor) {
+        mat.shadeColorFactor.copy(color).multiplyScalar(0.72);
       }
     }
   }
@@ -378,7 +383,7 @@ export class AvatarRenderer {
       this.hidePhase = 'idle';
       if (this.currentModel) this.currentModel.position.set(0, 0, 0);
       if (this.vrmBones?.hips) {
-        this.vrmBones.hips.position.set(0, 0, 0);
+        if (this.hipsRestPosition) this.vrmBones.hips.position.copy(this.hipsRestPosition);
         this.vrmBones.hips.rotation.set(0, 0, 0);
       }
       if (this.onHideStateChange) {
@@ -425,7 +430,6 @@ export class AvatarRenderer {
             this.currentModel = vrm.scene;
             VRMUtils.rotateVRM0(vrm);
             vrm.scene.position.set(0, 0, 0);
-            vrm.scene.rotation.set(0, 0, 0);
             this.scene.add(vrm.scene);
 
             // Cache humanoid skeleton bones
@@ -462,6 +466,9 @@ export class AvatarRenderer {
                       if (mat.shadeColor) {
                         // Warm natural contour tone so nose and lips are clearly visible
                         mat.shadeColor.setRGB(0.90, 0.76, 0.70);
+                      }
+                      if (mat.shadeColorFactor) {
+                        mat.shadeColorFactor.setRGB(0.92, 0.82, 0.78);
                       }
                     }
                   }
@@ -557,6 +564,10 @@ export class AvatarRenderer {
       leftLittleIntermediate: h.getNormalizedBoneNode('leftLittleIntermediate'),
       leftLittleDistal: h.getNormalizedBoneNode('leftLittleDistal'),
     };
+
+    if (this.vrmBones.hips) {
+      this.hipsRestPosition = this.vrmBones.hips.position.clone();
+    }
   }
 
   clearCurrentModel() {
@@ -564,6 +575,7 @@ export class AvatarRenderer {
     this.isHidingState = false;
     this.hidePhase = 'idle';
     this.hideTransitionProgress = 0;
+    this.hipsRestPosition = null;
     if (this.onHideStateChange) {
       this.onHideStateChange(false);
     }
@@ -728,7 +740,9 @@ export class AvatarRenderer {
           }
           if (b.hips) {
             b.hips.rotation.y = -0.75;
-            b.hips.position.y = stepBounce;
+            if (this.hipsRestPosition) {
+              b.hips.position.set(this.hipsRestPosition.x, this.hipsRestPosition.y + stepBounce, this.hipsRestPosition.z);
+            }
           }
           if (b.leftUpperArm) {
             b.leftUpperArm.rotation.x = runCycle * 0.75;
@@ -760,7 +774,9 @@ export class AvatarRenderer {
           }
           if (b.hips) {
             b.hips.rotation.y = -0.28;
-            b.hips.position.set(0, 0, 0);
+            if (this.hipsRestPosition) {
+              b.hips.position.copy(this.hipsRestPosition);
+            }
           }
           if (b.spine) b.spine.rotation.set(0, 0, 0);
           if (b.chest) b.chest.rotation.set(0, 0, 0);
@@ -804,7 +820,9 @@ export class AvatarRenderer {
           }
           if (b.hips) {
             b.hips.rotation.y = (1.0 - e) * 0.55;
-            b.hips.position.y = t < 1.0 ? stepBounce : 0;
+            if (this.hipsRestPosition) {
+              b.hips.position.set(this.hipsRestPosition.x, this.hipsRestPosition.y + (t < 1.0 ? stepBounce : 0), this.hipsRestPosition.z);
+            }
           }
           if (b.leftUpperArm) {
             b.leftUpperArm.rotation.x = runCycle * 0.55;
@@ -826,8 +844,8 @@ export class AvatarRenderer {
           if (t >= 1.0) {
             this.hidePhase = 'idle';
             if (this.currentModel) this.currentModel.position.set(0, 0, 0);
-            if (b.hips) {
-              b.hips.position.set(0, 0, 0);
+            if (b.hips && this.hipsRestPosition) {
+              b.hips.position.copy(this.hipsRestPosition);
               b.hips.rotation.set(0, 0, 0);
             }
           }
@@ -846,8 +864,8 @@ export class AvatarRenderer {
             this.activeReaction = null;
             this.reactionProgress = 0;
             if (this.currentModel) this.currentModel.position.set(0, 0, 0);
-            if (b.hips) {
-              b.hips.position.set(0, 0, 0);
+            if (b.hips && this.hipsRestPosition) {
+              b.hips.position.copy(this.hipsRestPosition);
               b.hips.rotation.set(0, 0, 0);
             }
             this._straightenFingers('right', ['Thumb', 'Index', 'Middle', 'Ring', 'Little']);
@@ -1026,7 +1044,13 @@ export class AvatarRenderer {
             const danceCycle = Math.sin(this.reactionProgress * Math.PI * 5);
             const danceCos = Math.cos(this.reactionProgress * Math.PI * 5);
             if (b.hips) {
-              b.hips.position.x = danceCycle * 0.08 * rWeight;
+              if (this.hipsRestPosition) {
+                b.hips.position.set(
+                  this.hipsRestPosition.x + danceCycle * 0.08 * rWeight,
+                  this.hipsRestPosition.y,
+                  this.hipsRestPosition.z
+                );
+              }
               b.hips.rotation.z = danceCycle * 0.08 * rWeight;
             }
             if (b.chest) {
@@ -1127,6 +1151,15 @@ export class AvatarRenderer {
           if (b.rightHand) {
             b.rightHand.rotation.x = 0.08 + rWrist;
             b.rightHand.rotation.z = -0.05;
+          }
+
+          // Ensure model and hips remain solidly centered at rest in idle
+          if (this.currentModel) {
+            this.currentModel.position.set(0, 0, 0);
+          }
+          if (b.hips && this.hipsRestPosition) {
+            b.hips.position.copy(this.hipsRestPosition);
+            b.hips.rotation.set(0, 0, 0);
           }
 
           // Ensure fingers rest naturally in idle

@@ -1,6 +1,6 @@
 [package]
 name = "ailive"
-version = "1.2.9"
+version = "1.3.0"
 description = "ailive - TikTok Live AI Avatar with Gemini Live API"
 authors = ["ainul12-1"]
 edition = "2021"
