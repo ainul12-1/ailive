@@ -302,6 +302,45 @@ export class AvatarRenderer {
   }
 
   /**
+   * Set VRM lip-sync vowels safely across VRM 0.0 & 1.0
+   */
+  setVowelSafe(vowel, weight, maxVal = 1.0) {
+    if (!this.currentVrm?.expressionManager) return;
+    const em = this.currentVrm.expressionManager;
+    const clamped = Math.min(maxVal, Math.max(0, weight));
+    const vowelMap = {
+      aa: ['aa', 'a', 'A', 'aa_vowel'],
+      ih: ['ih', 'i', 'I', 'ih_vowel'],
+      ou: ['ou', 'u', 'U', 'ou_vowel'],
+      ee: ['ee', 'e', 'E', 'ee_vowel'],
+      oh: ['oh', 'o', 'O', 'oh_vowel'],
+    };
+    const candidates = vowelMap[vowel] || [vowel];
+    for (const c of candidates) {
+      try {
+        em.setValue(c, clamped);
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Smoothly decay vowels when silent
+   */
+  decayVowelsSafe(speed = 0.25) {
+    if (!this.currentVrm?.expressionManager) return;
+    const em = this.currentVrm.expressionManager;
+    const vowels = ['aa', 'ih', 'ou', 'ee', 'oh', 'a', 'i', 'u', 'e', 'o', 'A', 'I', 'U', 'E', 'O'];
+    for (const v of vowels) {
+      try {
+        const cur = em.getValue(v);
+        if (cur !== undefined && cur > 0.001) {
+          em.setValue(v, Math.max(0, cur - speed));
+        }
+      } catch (_) {}
+    }
+  }
+
+  /**
    * Helper to curl finger joints naturally into a fist or pose
    * Note: In VRM humanoid bones, Right hand curls on negative Z, Left hand curls on positive Z.
    */
@@ -669,6 +708,7 @@ export class AvatarRenderer {
       }
       const b = this.vrmBones;
       const exp = this.currentVrm.expressionManager;
+      let isReacting = false;
 
       // --- A. Organic Multi-Frequency Asynchronous Respiration ---
       // Combining non-harmonic frequencies prevents robotic looping
@@ -852,7 +892,7 @@ export class AvatarRenderer {
         }
       } else {
         // Evaluate active spontaneous reaction (e.g. Love / Middle Finger / Peace / Wave / Dance / Thanks)
-        let isReacting = false;
+        isReacting = false;
         let rWeight = 0;
         if (this.activeReaction) {
           this.reactionProgress += delta / this.reactionDuration;
