@@ -322,29 +322,72 @@ export class GeminiLiveClient {
   }
 
   /**
-   * Get current audio volume / mouth open level for lip-sync [0.0 - 1.0]
+   * Get current detailed audio analysis for natural multi-vowel lip-sync
+   * Returns { volume, lowBand, midBand, highBand, isSpeaking }
    */
-  getAudioVolume() {
+  getAudioAnalysis() {
     if (this.simulatedSpeechEndTime && performance.now() < this.simulatedSpeechEndTime) {
-      // Natural speech rhythm curve (vocal pauses, syllable cadence)
-      const t = performance.now() * 0.008;
-      const cadence = Math.sin(t * 1.5) * 0.5 + 0.5;
-      const syllable = Math.sin(t * 7.5) * 0.5 + 0.5;
-      return Math.min(1.0, (cadence * syllable * 0.95 + 0.15));
+      const now = performance.now();
+      const t = now * 0.007;
+      // Syllable rhythm with brief phrase pauses
+      const phrasePause = Math.sin(t * 0.6) > -0.3 ? 1.0 : 0.08;
+      const syllable = Math.max(0, Math.sin(t * 5.5) * 0.5 + Math.sin(t * 2.8) * 0.3 + 0.2);
+      const vol = Math.min(1.0, syllable * phrasePause * 0.95);
+
+      // Formant distribution variations
+      const low = Math.min(1.0, (Math.sin(t * 4.2) * 0.5 + 0.5) * vol * 1.2);
+      const mid = Math.min(1.0, (Math.sin(t * 6.8 + 1.2) * 0.5 + 0.5) * vol * 1.3);
+      const high = Math.min(1.0, (Math.cos(t * 5.1) * 0.5 + 0.5) * vol * 0.9);
+
+      return {
+        volume: vol,
+        lowBand: low,
+        midBand: mid,
+        highBand: high,
+        isSpeaking: vol > 0.06,
+      };
     }
-    if (!this.analyser || !this.isSpeaking) return 0;
+
+    if (!this.analyser || !this.isSpeaking) {
+      return { volume: 0, lowBand: 0, midBand: 0, highBand: 0, isSpeaking: false };
+    }
+
     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     this.analyser.getByteFrequencyData(dataArray);
 
-    let sum = 0;
-    // Focus on vocal speech frequencies (around 300Hz - 3400Hz)
-    const binCount = Math.min(dataArray.length, 64);
-    for (let i = 0; i < binCount; i++) {
-      sum += dataArray[i];
-    }
-    const average = sum / binCount;
-    // Normalized to 0.0 - 1.0 with a sensible gain
-    return Math.min(1.0, (average / 128.0) * 1.5);
+    // 1. Low vocal band (~180Hz - 650Hz, bins 2..7): 'ou' / 'oh' resonance
+    let lowSum = 0;
+    for (let i = 2; i <= 7 && i < dataArray.length; i++) lowSum += dataArray[i];
+    const lowBand = Math.min(1.0, (lowSum / 6 / 128.0) * 1.6);
+
+    // 2. Mid vocal band (~650Hz - 1700Hz, bins 8..18): 'aa' open mouth
+    let midSum = 0;
+    for (let i = 8; i <= 18 && i < dataArray.length; i++) midSum += dataArray[i];
+    const midBand = Math.min(1.0, (midSum / 11 / 128.0) * 1.8);
+
+    // 3. High vocal band (~1700Hz - 4200Hz, bins 19..45): 'ee' / 'ih' teeth & spread
+    let highSum = 0;
+    for (let i = 19; i <= 45 && i < dataArray.length; i++) highSum += dataArray[i];
+    const highBand = Math.min(1.0, (highSum / 27 / 128.0) * 1.7);
+
+    // Overall energy
+    const totalAvg = (lowSum + midSum * 1.2 + highSum * 0.9) / 44 / 128.0;
+    const volume = Math.min(1.0, totalAvg * 1.55);
+
+    return {
+      volume,
+      lowBand,
+      midBand,
+      highBand,
+      isSpeaking: volume > 0.05,
+    };
+  }
+
+  /**
+   * Get current audio volume / mouth open level for lip-sync [0.0 - 1.0] (legacy compat)
+   */
+  getAudioVolume() {
+    return this.getAudioAnalysis().volume;
   }
 
   /**

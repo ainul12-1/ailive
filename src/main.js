@@ -170,7 +170,8 @@ let geminiClient = new GeminiLiveClient({
   },
 });
 
-// Link Audio volume to Avatar lip-sync and 3D visualizer
+// Link Audio analysis & volume to Avatar lip-sync and 3D visualizer
+avatarRenderer.setAudioAnalysisGetter(() => geminiClient.getAudioAnalysis());
 avatarRenderer.setAudioVolumeGetter(() => geminiClient.getAudioVolume());
 
 // Animate soundwave bars
@@ -535,6 +536,15 @@ avatarRenderer.onHideStateChange = (isHiding) => {
   updateHideButtons(isHiding);
 };
 
+function updateLocomotionButtons(mode) {
+  document.querySelectorAll('[data-pose="walk"]').forEach((btn) => {
+    btn.classList.toggle('btn-accent', mode === 'walk');
+  });
+  document.querySelectorAll('[data-pose="groove"]').forEach((btn) => {
+    btn.classList.toggle('btn-accent', mode === 'groove');
+  });
+}
+
 document.querySelectorAll('.stage-pose-pill, .pose-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const pose = btn.getAttribute('data-pose');
@@ -542,9 +552,28 @@ document.querySelectorAll('.stage-pose-pill, .pose-btn').forEach((btn) => {
 
     if (pose === 'hide') {
       const isNowHiding = avatarRenderer.toggleHide();
+      updateLocomotionButtons('idle');
       speechTextEl.textContent = isNowHiding
         ? '[Avatar Sembunyi]: Lari malu-malu sembunyi di balik dinding... 👀'
         : '[Avatar Muncul]: Lari ceria kembali ke panggung! ✨';
+      return;
+    }
+
+    if (pose === 'walk') {
+      const isWalking = avatarRenderer.toggleWalk();
+      updateLocomotionButtons(isWalking ? 'walk' : 'idle');
+      speechTextEl.textContent = isWalking
+        ? '🚶‍♀️ Maya: Sedang berjalan santai mengelilingi panggung...'
+        : '🧍‍♀️ Maya: Berhenti dan berdiri santai.';
+      return;
+    }
+
+    if (pose === 'groove') {
+      const isGrooving = avatarRenderer.toggleGroove();
+      updateLocomotionButtons(isGrooving ? 'groove' : 'idle');
+      speechTextEl.textContent = isGrooving
+        ? '💃 Maya: Goyang santai dan berirama!'
+        : '🧍‍♀️ Maya: Berhenti bergoyang.';
       return;
     }
 
